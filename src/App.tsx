@@ -29,14 +29,58 @@ export default function App() {
   const [selectedRestricoes, setSelectedRestricoes] = useState<string[]>([]);
   const [observacao, setObservacao] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['SIAFI - Crédito/Dotação']);
 
   useEffect(() => {
     fetchAnalyses();
   }, []);
 
+  const CATEGORIES = {
+    "SIAFI - Crédito/Dotação": [
+      "ND - Nota de Dotação", 
+      "NC - Nota de Crédito", 
+      "PE - Pré-Empenho", 
+      "PF - Programação Financeira"
+    ],
+    "SIAFI - Execução/Ajustes": [
+      "NE - Nota de Empenho", 
+      "NL - Nota de Lançamento", 
+      "NS - Lançamento de Sistema"
+    ],
+    "SIAFI - Pagamentos/Arrecadação": [
+      "OB - Ordem Bancária", 
+      "GP/GPS - Guia de Previdência", 
+      "DF/DARF - Arrecadação Federal", 
+      "DAR - Arrecadação Municipal", 
+      "GR/GRU - Guia de Recolhimento"
+    ],
+    "Relatórios e Origem": [
+      "Nota Fiscal", 
+      "SCDP (Diárias)", 
+      "RMA (Almoxarifado)", 
+      "RMB (Bens Móveis)"
+    ]
+  };
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
   const filteredDocTypes = (Object.keys(CHECKLIST_BY_TYPE) as DocType[]).filter(type => 
     type.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Auto-expand categories on search
+  useEffect(() => {
+    if (searchTerm) {
+      const catsToExpand = Object.entries(CATEGORIES)
+        .filter(([_, docs]) => docs.some(doc => doc.toLowerCase().includes(searchTerm.toLowerCase())))
+        .map(([cat]) => cat);
+      setExpandedCategories(prev => Array.from(new Set([...prev, ...catsToExpand])));
+    }
+  }, [searchTerm]);
 
   const fetchAnalyses = async () => {
     try {
@@ -175,8 +219,8 @@ export default function App() {
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-black/5">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-black/40 mb-4">Tipo de Documento</h3>
-                  <div className="relative mb-4">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-black/40 mb-4">Documentos</h3>
+                  <div className="relative mb-6">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-black/30" />
                     <input 
                       type="text" 
@@ -186,19 +230,55 @@ export default function App() {
                       className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-black/10 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-[#00FF00]"
                     />
                   </div>
-                  <div className="space-y-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                    {filteredDocTypes.map(type => (
-                      <button
-                        key={type}
-                        onClick={() => setTipoDoc(type)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all flex justify-between items-center ${tipoDoc === type ? 'bg-[#141414] text-white' : 'hover:bg-gray-100'}`}
-                      >
-                        <span className="truncate">{type}</span>
-                        {tipoDoc === type && <ChevronRight className="w-3 h-3 text-[#00FF00]" />}
-                      </button>
-                    ))}
+
+                  <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                    {Object.entries(CATEGORIES).map(([category, docs]) => {
+                      const filteredDocs = docs.filter(doc => doc.toLowerCase().includes(searchTerm.toLowerCase()));
+                      if (searchTerm && filteredDocs.length === 0) return null;
+                      
+                      const isExpanded = expandedCategories.includes(category);
+
+                      return (
+                        <div key={category} className="border-b border-black/5 last:border-0 pb-2">
+                          <button 
+                            onClick={() => toggleCategory(category)}
+                            className="w-full flex justify-between items-center py-2 text-[10px] font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors"
+                          >
+                            <span className="flex items-center gap-2">
+                              {category}
+                              <span className="bg-gray-100 text-black/40 px-1.5 py-0.5 rounded text-[8px]">{filteredDocs.length}</span>
+                            </span>
+                            <motion.div animate={{ rotate: isExpanded ? 90 : 0 }}>
+                              <ChevronRight className="w-3 h-3" />
+                            </motion.div>
+                          </button>
+                          
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden space-y-1 mt-1"
+                              >
+                                {filteredDocs.map(type => (
+                                  <button
+                                    key={type}
+                                    onClick={() => setTipoDoc(type as DocType)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-[11px] transition-all flex justify-between items-center ${tipoDoc === type ? 'bg-[#141414] text-white shadow-md' : 'hover:bg-gray-100 text-black/70'}`}
+                                  >
+                                    <span className="truncate">{type}</span>
+                                    {tipoDoc === type && <CheckCircle2 className="w-3 h-3 text-[#00FF00]" />}
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
                     {filteredDocTypes.length === 0 && (
-                      <p className="text-[10px] text-center text-black/30 py-4 italic">Nenhum tipo encontrado</p>
+                      <p className="text-[10px] text-center text-black/30 py-8 italic">Nenhum documento encontrado para "{searchTerm}"</p>
                     )}
                   </div>
                 </div>

@@ -36,12 +36,14 @@ async function startServer() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             Data: new Date(newAnalysis.timestamp).toLocaleDateString(),
-            Conformador: newAnalysis.conformador,
-            Processo: newAnalysis.processo,
-            Tipo_Documento: newAnalysis.tipoDoc,
-            Resultado: newAnalysis.resultado,
-            Restricoes: newAnalysis.restricoes.join(", "),
-            Observacao: newAnalysis.observacao
+            Hora: new Date(newAnalysis.timestamp).toLocaleTimeString(),
+            Conformista: newAnalysis.conformista || "N/A",
+            Processo: newAnalysis.processo || "N/A",
+            Numero_Documento: newAnalysis.numeroDoc || "N/A",
+            Tipo_Documento: newAnalysis.tipoDoc || "N/A",
+            Resultado: newAnalysis.resultado || "N/A",
+            Ocorrencias: (newAnalysis.restricoes || []).join(", "),
+            Observacao: newAnalysis.observacao || ""
           })
         });
         console.log("Dados enviados para o Excel com sucesso!");

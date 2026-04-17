@@ -240,12 +240,13 @@ export default function App() {
                       </div>
                       <div>
                         <label className="text-xs uppercase font-bold text-black/40 block mb-3">Tipo de Documento</label>
-                        <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
                           {Object.keys(CHECKLIST_BY_TYPE).map(type => (
                             <button
                               key={type}
+                              type="button"
                               onClick={() => setTipoDoc(type as DocType)}
-                              className={`w-full text-left px-3 py-3 rounded-lg text-sm transition-all border ${tipoDoc === type ? 'bg-[#00FF00] text-black border-[#00FF00] font-bold shadow-sm' : 'bg-gray-50 border-black/5 text-black/60 hover:bg-gray-100'}`}
+                              className={`w-full text-left px-3 py-2.5 rounded-lg text-[11px] sm:text-xs transition-all border ${tipoDoc === type ? 'bg-[#00FF00] text-black border-[#00FF00] font-bold shadow-sm' : 'bg-gray-50 border-black/5 text-black/60 hover:bg-gray-100'}`}
                             >
                               {type}
                             </button>
@@ -451,8 +452,8 @@ export default function App() {
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
+              <div className="hidden lg:block overflow-x-auto no-scrollbar">
+                <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="p-4 text-[10px] uppercase font-bold text-black/40 tracking-widest">Data/Hora</th>
@@ -501,6 +502,46 @@ export default function App() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Cards for Mobile/Tablet */}
+              <div className="lg:hidden p-4 space-y-4">
+                {analyses.length === 0 ? (
+                  <div className="p-12 text-center text-black/40 italic">Nenhuma análise registrada ainda.</div>
+                ) : (
+                  analyses.map(item => (
+                    <motion.div 
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-gray-50 p-4 rounded-2xl border border-black/5 space-y-3"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="text-[10px] uppercase font-bold text-black/30 tracking-widest">{new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString()}</div>
+                          <div className="text-base font-bold text-black mt-1">{item.processo}</div>
+                        </div>
+                        <span className={`px-2 py-1 rounded-lg text-[9px] font-bold uppercase ${item.resultado === 'SEM OCORRÊNCIA' ? 'bg-[#00FF00] text-black' : 'bg-red-500 text-white'}`}>
+                          {item.resultado === 'SEM OCORRÊNCIA' ? 'Ok' : 'Ocorrência'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 border-t border-black/5 pt-3">
+                        <FileText className="w-3 h-3 text-black/40" />
+                        <div className="text-xs font-medium text-black/70">{item.tipoDoc} {item.numeroDoc && <span className="text-black/30">| {item.numeroDoc}</span>}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div className="bg-white p-2 rounded-lg border border-black/5">
+                          <p className="text-[9px] uppercase font-bold text-black/30">Conformista</p>
+                          <p className="text-[11px] font-medium truncate">{item.conformista}</p>
+                        </div>
+                        <div className="bg-white p-2 rounded-lg border border-black/5">
+                          <p className="text-[9px] uppercase font-bold text-black/30">Ocorrências</p>
+                          <p className="text-[11px] font-medium truncate">{(item.restricoes && item.restricoes.length > 0) ? item.restricoes.length : 0}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
               </div>
             </motion.div>
           )}

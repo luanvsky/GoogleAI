@@ -1,0 +1,103 @@
+[
+  {
+    "id": "1772580000001",
+    "timestamp": "2026-09-02T14:30:00.000Z",
+    "conformista": "Equipe de Conformidade IFS",
+    "processo": "23060.014520/2026-11",
+    "numeroDoc": "2026NE000184",
+    "tipoDoc": "NE - Nota de Empenho",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "ne_1": true, "ne_2": true, "ne_3": true },
+    "restricoes": [],
+    "observacao": "Processo de aquisição instruído regularmente conforme art. 60 da Lei 4.320/64."
+  },
+  {
+    "id": "1772580000002",
+    "timestamp": "2026-09-02T15:45:00.000Z",
+    "conformista": "Auditor Setorial IFS",
+    "processo": "23060.016789/2026-44",
+    "numeroDoc": "NF 4829",
+    "tipoDoc": "DD - Documento de Despesa",
+    "resultado": "COM OCORRÊNCIA",
+    "checklist": { "dd_1": true, "dd_2": false, "dd_3": false },
+    "restricoes": [
+      "001 - Ausência de Regularidade Fiscal (CND/SICAF)",
+      "007 - Falta de Termo de Recebimento Definitivo/Ateste formal"
+    ],
+    "observacao": "Ausência do ateste formal do fiscal do contrato e CND Federal vencida na data da liquidação."
+  },
+  {
+    "id": "1772580000003",
+    "timestamp": "2026-09-02T16:20:00.000Z",
+    "conformista": "Setor de Liquidação e Pagamento",
+    "processo": "23060.018902/2026-89",
+    "numeroDoc": "2026OB800912",
+    "tipoDoc": "OB - Ordem Bancária",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "ob_1": true, "ob_2": true },
+    "restricoes": [],
+    "observacao": "Conta bancária vinculada e dados do favorecido estritamente coincidentes com o empenho."
+  },
+  {
+    "id": "1772580000004",
+    "timestamp": "2026-09-03T09:10:00.000Z",
+    "conformista": "Conformista Titular IFS",
+    "processo": "23060.021004/2026-32",
+    "numeroDoc": "NF 1102",
+    "tipoDoc": "DD - Documento de Despesa",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "dd_1": true, "dd_2": true, "dd_3": true },
+    "restricoes": [],
+    "observacao": "Retenções federais (IR/CSLL/PIS/COFINS) aplicadas corretamente conforme IN RFB 1.234/2012."
+  },
+  {
+    "id": "1772580000005",
+    "timestamp": "2026-09-03T10:15:00.000Z",
+    "conformista": "Auditor Setorial IFS",
+    "processo": "23060.022415/2026-78",
+    "numeroDoc": "2026NP000210",
+    "tipoDoc": "NP - Nota de Pagamento",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "np_1": true, "np_2": true },
+    "restricoes": [],
+    "observacao": "Documentação suporte completa para liquidação e liberação financeira."
+  },
+  {
+    "id": "1772580000006",
+    "timestamp": "2026-09-03T11:00:00.000Z",
+    "conformista": "Conformista Titular IFS",
+    "processo": "23060.023890/2026-55",
+    "numeroDoc": "2026NE000305",
+    "tipoDoc": "NE - Nota de Empenho",
+    "resultado": "COM OCORRÊNCIA",
+    "checklist": { "ne_1": true, "ne_2": false },
+    "restricoes": [
+      "003 - Divergência na Classificação Orçamentária / Natureza de Despesa"
+    ],
+    "observacao": "Incompatibilidade no elemento de despesa 33.90.30 (Material de Consumo) para contratação de serviço."
+  },
+  {
+    "id": "1772580000007",
+    "timestamp": "2026-09-03T11:40:00.000Z",
+    "conformista": "Equipe de Conformidade IFS",
+    "processo": "23060.025112/2026-61",
+    "numeroDoc": "NF 9403",
+    "tipoDoc": "DD - Documento de Despesa",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "dd_1": true, "dd_2": true },
+    "restricoes": [],
+    "observacao": "Serviços continuados de limpeza com comprovação de encargos e certidões válidas."
+  },
+  {
+    "id": "1772580000008",
+    "timestamp": "2026-09-03T12:05:00.000Z",
+    "conformista": "Setor Financeiro IFS",
+    "processo": "23060.026744/2026-90",
+    "numeroDoc": "2025RP000045",
+    "tipoDoc": "RP - Restos a Pagar",
+    "resultado": "SEM OCORRÊNCIA",
+    "checklist": { "rp_1": true, "rp_2": true },
+    "restricoes": [],
+    "observacao": "Restos a pagar processados com confirmação de disponibilidade orçamentária prévia."
+  }
+]

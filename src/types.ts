@@ -487,5 +487,52 @@ export const TAX_RULES: TaxRule[] = [
 export const RESTRICOES = [
   "001 - Documentação Suporte Inadequada",
   "002 - Documentação Suporte Inexistente",
-  "003 - Registro não Espelha o Ato/Fato de Gestão"
+  "003 - Registro não Espelha o Ato/Fato de Gestão",
+  "004 - Ausência de Ateste/Recebimento na Nota Fiscal/Fatura",
+  "005 - Divergência de Valores/Cálculos Tributários ou Retenções (IN 1234/12)",
+  "006 - Ausência de Regularidade Fiscal/Trabalhista (SICAF/CND/FGTS)",
+  "007 - Descumprimento de Prazo ou Vigência Contratual",
+  "008 - Ausência de Autorização/Despacho do Ordenador de Despesa",
+  "009 - Favorecido ou Dados Bancários Divergentes",
+  "010 - Classificação Orçamentária/Natureza de Despesa Incorreta",
+  "011 - Ausência de Nota de Empenho Vinculada Regular",
+  "012 - Inobservância da Ordem Cronológica de Pagamento"
 ];
+
+export interface ProcessRestriction {
+  codigo: string;
+  titulo: string;
+  descricao: string;
+  severidade: "Impeditiva" | "Grave" | "Moderada" | "Leve";
+  trechoEvidencia: string;
+  acaoRecomendada: string;
+}
+
+export interface ProcessChecklistItem {
+  item: string;
+  status: "CONFORME" | "NÃO CONFORME" | "NÃO SE APLICA";
+  observacao: string;
+}
+
+export interface ProcessAuditResult {
+  processo: string;
+  numeroDoc: string;
+  tipoDoc: DocType;
+  favorecido: {
+    nome: string;
+    cnpjCpf: string;
+  };
+  valores: {
+    valorBruto: number;
+    retencoes: number;
+    valorLiquido: number;
+    detalheRetencoes?: string;
+  };
+  resultado: "SEM OCORRÊNCIA" | "COM OCORRÊNCIA";
+  restricoesDetectadas: ProcessRestriction[];
+  checklistAvaliado: ProcessChecklistItem[];
+  documentosIdentificados: string[];
+  parecerConclusivo: string;
+  sugestaoConformista: string;
+  confiancaAnalise?: string;
+}

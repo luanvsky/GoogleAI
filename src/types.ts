@@ -16,7 +16,8 @@ export type DocType =
   | "SF - Solicitação de Fundo"
   | "OB - Ordem Bancária"
   | "DARF - Documento de Arrecadação"
-  | "NS - Nota de Sistema";
+  | "NS - Nota de Sistema"
+  | "NL - Nota de Lançamento";
 
 export interface ChecklistItem {
   id: string;
@@ -323,7 +324,22 @@ export const DOC_GUIDES: Record<DocType, DocGuide> = {
     periodicidade: "Mensal / Encerramento do Exercício.",
     observacoesTecnicas: "Validar os parâmetros do sistema que geraram o lançamento automático.",
     detalhamento: "A Nota de Sistema (NS) é um registro eletrônico de processamento automático ou em lote dentro do SIAFI/SIAFEM. Representa operações de fechamento, depreciação, atualização cambial, ou importação de folhas que necessitam de conferência de parâmetros para evitar distorções.",
-    fieldsToWatch: ["Parâmetro de lote", "UG Emitente", "Contas Debitadas/Creditadas", "Histórico automático", "Valor total registrado"]
+    fieldsToWatch: ["Parâmetro de lote", "UG Emitente", "Contas Debitadas/Creditadas", "Histórico automático", "Valor total registrado", "Observação/Descrição contábil"]
+  },
+  "NL - Nota de Lançamento": {
+    title: "Roteiro de Análise: Nota de Lançamento (NL)",
+    description: "Registrar a liquidação da despesa ou apropriação contábil no SIAFI.",
+    code: "NL",
+    finalidade: "Materializar a liquidação da despesa orçamentária ou fatos contábeis patrimoniais.",
+    etapaCiclo: "Liquidação da Despesa / Contabilidade",
+    origem: "Setor de Contabilidade / Finanças",
+    responsavel: "Contador / Conformista de Gestão",
+    impactoContabil: "Reconhece o passivo exigível, liquida o empenho e apropria o direito do credor.",
+    relacaoDocs: "Vinculada à NE (Nota de Empenho), Lista de Credores (CONLX/PIX) ou Nota Fiscal e Despacho Autorizativo.",
+    periodicidade: "Conforme realização da liquidação.",
+    observacoesTecnicas: "Exige rigor extremo na escrita do campo OBSERVAÇÃO (objeto, datas, processo SEI e favorecidos). Em auxílios estudantis e diárias, dispensa nota fiscal comercial.",
+    detalhamento: "A Nota de Lançamento (NL) é o instrumento central de liquidação da despesa no SIAFI. Nos processos de concessão de auxílios a estudantes (339018), substitui a necessidade de nota fiscal mercantil, sendo instruída com a lista de beneficiários (CONLX) e despacho do Ordenador.",
+    fieldsToWatch: ["Texto da Observação (clareza e exatidão)", "NE Vinculada", "Conta Contábil / Elemento 339018", "Eventos de Liquidação (401002/521237/511074)", "Lista de Favorecidos"]
   }
 };
 
@@ -434,10 +450,17 @@ export const CHECKLIST_BY_TYPE: Record<DocType, ChecklistItem[]> = {
     { id: "darf_calc", label: "Os valores de principal, multa e juros (se houver) foram recalculados e batem com o Sicalc?", hint: "Assegurar exatidão matemática nos tributos retidos e devidos.", category: "Valores" }
   ],
   "NS - Nota de Sistema": [
-    { id: "ns_integ", label: "O lote de integração de sistema foi executado sem erros de processamento?", hint: "Garantir a integridade dos dados migrados de subsistemas para a contabilidade central.", category: "Sistêmico" },
-    { id: "ns_param", label: "Os parâmetros e tabelas de conversão do sistema estão corretos e atualizados?", hint: "Evitar taxas de depreciação ou indexações incorretas.", category: "Parâmetros" },
-    { id: "ns_concil", label: "Os saldos gerados pela NS batem com os relatórios analíticos dos subsistemas?", hint: "Confrontar os saldos da folha, almoxarifado ou patrimônio com o razão contábil.", category: "Conciliação" },
-    { id: "ns_homolog", label: "Existe homologação e assinatura digital do responsável técnico do fechamento?", hint: "O lançamento automático necessita de validação por profissional contábil habilitado.", category: "Autorização" }
+    { id: "ns_obs_escrita", label: "A escrita do campo 'OBSERVAÇÃO' é clara, precisa e identifica o objeto, período, local e processo SEI?", hint: "Rigor contábil da Macrofunção SIAFI 020314: a redação oficial deve identificar claramente o fato de gestão e apontar eventuais gralhas.", category: "Redação Contábil" },
+    { id: "ns_doc_habil", label: "O documento hábil é adequado à natureza da despesa (ex: Lista de Credores PIX/CONLX para auxílio a estudantes sem nota fiscal)?", hint: "Auxílios a estudantes (339018) dispensam nota fiscal comercial; o documento de suporte é a lista bancária/CONLX e autorização do Ordenador.", category: "Documentação" },
+    { id: "ns_evento_class", label: "Os eventos contábeis (ex: 521237, 401002, 511074) e a classificação orçamentária (ex: 33901801) estão corretos?", hint: "Garantir a fidedignidade da liquidação e apropriação orçamentária no SIAFI.", category: "Contábil" },
+    { id: "ns_vinc_ne", label: "A Nota de Empenho vinculada está regular, ativa e referenciada nos autos?", hint: "Confrontar número e saldo da NE vinculada no processo.", category: "Vínculos" },
+    { id: "ns_ordenador", label: "Consta autorização prévia ou despacho de pagamento do Ordenador de Despesa (Art. 64 da Lei 4.320/64)?", hint: "Atender ao princípio da legalidade e competência formal para liquidação e pagamento.", category: "Autorização" }
+  ],
+  "NL - Nota de Lançamento": [
+    { id: "nl_obs_escrita", label: "O campo 'OBSERVAÇÃO' descreve detalhadamente o fato gerador, objeto, datas e processo SEI de origem?", hint: "Exame minucioso da escrita da observação contábil para evitar ambiguidades ou omissões perante os órgãos de controle.", category: "Redação Contábil" },
+    { id: "nl_suporte", label: "A documentação de suporte comprova a liquidação da despesa conforme a sua natureza?", hint: "Para aquisições comerciais: NF e ateste; Para auxílios/bolsas: folha/lista de credores e despacho autorizativo (dispensa NF).", category: "Documentação" },
+    { id: "nl_eventos", label: "Os eventos contábeis e contas patrimoniais/orçamentárias debitadas e creditadas estão exatos?", hint: "Validar os eventos de liquidação (401002/521237) e apropriação/passivo.", category: "Contábil" },
+    { id: "nl_autorizacao", label: "Há autorização expressa do Ordenador de Despesas para a liquidação?", hint: "Atender ao art. 63 e 64 da Lei nº 4.320/64.", category: "Autorização" }
   ]
 };
 
@@ -535,4 +558,12 @@ export interface ProcessAuditResult {
   parecerConclusivo: string;
   sugestaoConformista: string;
   confiancaAnalise?: string;
+  naturezaProcesso?: "AQUISIÇÃO_OU_SERVIÇO" | "AUXILIO_ESTUDANTIL" | "DIARIAS_OU_PASSAGENS" | "FOLHA_OU_BENEFICIOS" | "OUTROS";
+  analiseDescricaoContabil?: {
+    textoObservacao?: string;
+    qualidadeRedacao?: "Excelente" | "Regular com Ressalvas" | "Deficiente / Incompleta";
+    avaliacaoCriteriosa?: string;
+    elementosIdentificados?: string[];
+    apontamentosOuGralhas?: string[];
+  };
 }

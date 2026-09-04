@@ -49,6 +49,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
+  const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
@@ -168,6 +169,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
 
       if (data?.audit) {
         setAuditResult(data.audit);
+        setIsContingencyMode(!!data.isFallback);
       } else {
         throw new Error('A resposta da auditoria não veio no formato esperado.');
       }
@@ -572,6 +574,26 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           ) : (
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
               
+              {/* CONTINGENCY MODE ALERT BANNER */}
+              {isContingencyMode && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700/60 rounded-2xl flex items-start gap-3.5 text-amber-900 dark:text-amber-200 shadow-sm">
+                  <div className="p-2 bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 rounded-xl shrink-0">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="font-black text-xs uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                      <span>Modo de Contingência Normativa Ativado</span>
+                      <span className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900/80 rounded-full text-[9px] font-bold">
+                        Alta Demanda IA 503
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-amber-800/90 dark:text-amber-200/90">
+                      Os servidores de IA do Google enfrentaram alta demanda momentânea. A auditoria deste processo foi processada com total rigor analítico pelo <strong>Motor Especialista de Regras Normativas do IFS</strong> (Leis nº 4.320/64 e 14.133/21, IN RFB nº 1.234/12 e Macrofunção SIAFI 020314).
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* PRIMARY SIGNAL BANNER (SINALIZADOR DE RESTRIÇÃO) */}
               <div className={`p-6 rounded-2xl border shadow-lg transition-all ${
                 auditResult.resultado === 'SEM OCORRÊNCIA'

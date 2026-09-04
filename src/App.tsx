@@ -19,6 +19,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { DocType, Analysis, CHECKLIST_BY_TYPE, RESTRICOES, DOC_GUIDES, TAX_RULES, TaxRule } from './types';
 import { ProcessPdfAnalyzer } from './components/ProcessPdfAnalyzer';
 import { HistoryStatistics } from './components/HistoryStatistics';
@@ -998,6 +999,7 @@ export default function App() {
           Baseado no Manual de Procedimentos para a Conformidade de Registro de Gestão 2026 (Portaria IFS nº 1.633/2026)
         </p>
       </footer>
+      <Analytics />
     </div>
   );
 }

@@ -152,52 +152,72 @@ DIRETRIZES DE AUDITORIA:
         ]
       };
 
-      // Tentar modelos suportados com fallback resiliente e backoff em caso de alta demanda (503/429)
+      // Modelos suportados: gemini-3.8-flash como principal (alta capacidade, multimodal e sem picos de 503) e gemini-flash-latest como fallback
       const candidateModels = [
-        "gemini-3.1-flash-lite", 
-        "gemini-3.5-flash", 
-        "gemini-flash-latest", 
-        "gemini-3.8-flash"
+        "gemini-3.8-flash",
+        "gemini-flash-latest"
       ];
       let response: any = null;
       let lastError: any = null;
 
+      // Itera sobre os modelos candidatos com retentativa para erros transitórios (503/429)
       for (let i = 0; i < candidateModels.length; i++) {
         const modelName = candidateModels[i];
-        try {
-          response = await ai.models.generateContent({
-            model: modelName,
-            contents: [
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: cleanBase64
-                }
-              },
-              {
-                text: prompt
-              }
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: auditSchema
-            }
-          });
+        const maxRetries = 2;
 
-          if (response && response.text) {
-            console.log(`Auditoria concluída com sucesso pelo modelo: ${modelName}`);
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`Iniciando auditoria via IA com modelo: ${modelName} (tentativa ${attempt + 1}/${maxRetries + 1})...`);
+            
+            response = await ai.models.generateContent({
+              model: modelName,
+              contents: [
+                {
+                  inlineData: {
+                    mimeType: "application/pdf",
+                    data: cleanBase64
+                  }
+                },
+                {
+                  text: prompt
+                }
+              ],
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: auditSchema
+              }
+            });
+
+            if (response && response.text) {
+              console.log(`Auditoria concluída com sucesso pelo modelo: ${modelName}`);
+              break;
+            }
+          } catch (err: any) {
+            lastError = err;
+            const errMsg = err?.message || String(err);
+            console.warn(`Tentativa de análise com modelo ${modelName} (tentativa ${attempt + 1}) falhou:`, errMsg.slice(0, 180));
+            
+            const isTransient = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED");
+            
+            // Se for transitório e ainda houver tentativas para este modelo, espera e tenta novamente
+            if (isTransient && attempt < maxRetries) {
+              const waitTime = (attempt + 1) * 1500;
+              console.log(`Aguardando ${waitTime}ms antes de tentar novamente o modelo ${modelName}...`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+              continue;
+            }
+            // Se não for transitório ou esgotou tentativas, interrompe para tentar o próximo modelo
             break;
           }
-        } catch (err: any) {
-          lastError = err;
-          console.warn(`Tentativa de análise com modelo ${modelName} falhou:`, err.message?.slice(0, 150));
-          
-          // Se for erro de alta demanda temporária (503) ou cota (429), aguarda breve pausa antes do próximo modelo
-          if (i < candidateModels.length - 1) {
-            const isDemandSpike = err.message?.includes("503") || err.message?.includes("UNAVAILABLE") || err.message?.includes("429");
-            const delayMs = isDemandSpike ? 1500 : 500;
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-          }
+        }
+
+        if (response && response.text) {
+          break;
+        }
+
+        // Breve pausa antes de passar ao modelo alternativo
+        if (i < candidateModels.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
@@ -205,7 +225,11 @@ DIRETRIZES DE AUDITORIA:
         throw lastError || new Error("Não foi possível obter resposta dos modelos de inteligência artificial.");
       }
 
-      const responseText = response.text || "{}";
+      let responseText = (response.text || "").trim();
+      // Remove delimitadores de markdown caso o modelo tenha incluído ```json ... ```
+      if (responseText.startsWith("```")) {
+        responseText = responseText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+      }
       const auditResult = JSON.parse(responseText);
 
       return res.json({

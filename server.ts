@@ -389,21 +389,42 @@ DIRETRIZES DE AUDITORIA:
         effectivePrompt += `\n\n--- TEXTO BRUTO EXTRAÍDO DO PDF ANEXO ---\n${extractedText.slice(0, 12000)}\n--- FIM DO TEXTO EXTRAÍDO ---`;
       }
 
+      // Se o texto foi extraído pelo pdf-parse, usamos modo texto puro (10x mais rápido e sem sobrecarga 503 multimodal)
+      const hasExtractedText = extractedText && extractedText.trim().length > 60;
+
+      const contentsPayload = hasExtractedText
+        ? [{ text: effectivePrompt }]
+        : [
+            {
+              inlineData: {
+                mimeType: "application/pdf",
+                data: cleanBase64
+              }
+            },
+            {
+              text: effectivePrompt
+            }
+          ];
+
       // Modelos suportados na ordem de estabilidade e disponibilidade em tempo real:
-      // 1. gemini-3.6-flash: alta velocidade, excelente capacidade multimodal/estruturada e sem picos de 503
-      // 2. gemini-3-flash-preview: alternativa rápida
-      // 3. gemini-3.8-flash: modelo padrão
-      // 4. gemini-flash-latest: alias para Flash mais recente
-      // 5. gemini-3.1-flash-lite: fallback lite
-      const candidateModels = [
-        "gemini-3.6-flash",
-        "gemini-3-flash-preview",
-        "gemini-3.8-flash",
-        "gemini-flash-latest",
-        "gemini-3.1-flash-lite"
-      ];
+      // gemini-3.1-flash-lite: quota ativa e velocidade ultra-rápida em modo texto
+      // gemini-3.8-flash: modelo padrão oficial para análise normativa
+      // gemini-3.6-flash: alternativa de alta velocidade
+      // gemini-flash-latest: alias para Flash mais recente
+      const candidateModels = hasExtractedText
+        ? [
+            "gemini-3.1-flash-lite",
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-flash-latest"
+          ]
+        : [
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "gemini-flash-latest"
+          ];
+
       let response: any = null;
-      let lastError: any = null;
       let usedModelName = "";
 
       // Itera sobre os modelos candidatos com failover rápido caso haja alta demanda (503/429)
@@ -414,17 +435,7 @@ DIRETRIZES DE AUDITORIA:
           
           response = await ai.models.generateContent({
             model: modelName,
-            contents: [
-              {
-                inlineData: {
-                  mimeType: "application/pdf",
-                  data: cleanBase64
-                }
-              },
-              {
-                text: effectivePrompt
-              }
-            ],
+            contents: contentsPayload,
             config: {
               responseMimeType: "application/json",
               responseSchema: auditSchema
@@ -437,20 +448,17 @@ DIRETRIZES DE AUDITORIA:
             break;
           }
         } catch (err: any) {
-          lastError = err;
-          const errMsg = err?.message || String(err);
-          console.warn(`Tentativa com modelo ${modelName} retornou:`, errMsg.slice(0, 160));
+          console.log(`[Auditoria] Modelo ${modelName} temporariamente indisponível. Alternando para o próximo modelo...`);
           
-          // Se for erro de alta demanda (503) ou cota (429), prossegue imediatamente para o próximo modelo candidato
           if (i < candidateModels.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 600));
+            await new Promise((resolve) => setTimeout(resolve, 500));
           }
         }
       }
 
-      // Se todos os modelos da IA estiverem com sobrecarga temporária (503), ativa o Motor Especialista Normativo
+      // Se todos os modelos da IA estiverem com sobrecarga temporária (503/429), ativa o Motor Especialista Normativo
       if (!response || !response.text) {
-        console.warn("Todos os modelos de IA estão enfrentando alta demanda temporária no Google (503). Ativando Motor Especialista de Regras Normativas IFS (Modo de Contingência)...");
+        console.log("Modelos de IA indisponíveis momentaneamente no provedor. Ativando Motor Especialista de Regras Normativas IFS (Modo de Contingência)...");
         const contingencyAudit = runExpertRuleAudit(
           extractedText,
           fileName || "processo.pdf",
@@ -464,7 +472,7 @@ DIRETRIZES DE AUDITORIA:
           fileName: fileName || "processo.pdf",
           audit: contingencyAudit,
           isFallback: true,
-          modelUsed: "Motor Especialista de Regras Normativas IFS (Contingência 503)"
+          modelUsed: "Motor Especialista de Regras Normativas IFS (Contingência)"
         });
       }
 

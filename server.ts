@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
@@ -1156,18 +1155,19 @@ function runExpertRuleAudit(
   };
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
 
-  // Suporte a arquivos PDF em base64 com limite expandido
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Suporte a arquivos PDF em base64 com limite expandido
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  const DATA_FILE = path.join(process.cwd(), "analyses.json");
+const DATA_FILE = process.env.VERCEL
+  ? path.join("/tmp", "analyses.json")
+  : path.join(process.cwd(), "analyses.json");
 
-  // Endpoint para análise de processos em PDF via IA (Gemini 3.8 Flash)
-  app.post("/api/analyze-process-pdf", async (req, res) => {
+// Endpoint para análise de processos em PDF via IA (Gemini 3.8 Flash)
+// Suporta tanto /api/analyze-process-pdf quanto /analyze-process-pdf (para compatibilidade com Vercel rewrites)
+app.post(["/api/analyze-process-pdf", "/analyze-process-pdf"], async (req, res) => {
     try {
       const { pdfBase64, fileName, docTypeHint, conformistaHint } = req.body;
 
@@ -1672,21 +1672,25 @@ DIRETRIZES DE AUDITORIA:
     }
   });
 
-  // Endpoint para salvar análises
-  app.post("/api/analyses", async (req, res) => {
+  // Endpoint para salvar análises (suporta /api/analyses e /analyses)
+  app.post(["/api/analyses", "/analyses"], async (req, res) => {
     const newAnalysis = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       ...req.body
     };
 
-    // Salva localmente no JSON
+    // Salva localmente no JSON de forma segura (previne crash em ambientes read-only/serverless)
     let data = [];
-    if (fs.existsSync(DATA_FILE)) {
-      data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+    try {
+      if (fs.existsSync(DATA_FILE)) {
+        data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      }
+      data.push(newAnalysis);
+      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (saveErr) {
+      console.warn("Aviso ao salvar analyses.json localmente:", saveErr);
     }
-    data.push(newAnalysis);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
     // ENVIO PARA O EXCEL (Power Automate)
     const webhookUrl = process.env.EXCEL_WEBHOOK_URL;
@@ -1716,14 +1720,26 @@ DIRETRIZES DE AUDITORIA:
     res.json({ success: true, analysis: newAnalysis });
   });
 
-  // Endpoint para listar análises
-  app.get("/api/analyses", (req, res) => {
-    if (fs.existsSync(DATA_FILE)) {
-      const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-      res.json(data);
-    } else {
-      res.json([]);
+  // Endpoint para listar análises (suporta /api/analyses e /analyses)
+  app.get(["/api/analyses", "/analyses"], (req, res) => {
+    try {
+      if (fs.existsSync(DATA_FILE)) {
+        const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+        return res.json(data);
+      }
+    } catch (readErr) {
+      console.warn("Aviso ao ler analyses.json:", readErr);
     }
+    res.json([]);
+  });
+
+  // Health check endpoint para monitoramento e checagem de rota
+  app.get(["/api/health", "/health"], (req, res) => {
+    res.json({ 
+      status: "ok", 
+      platform: process.env.VERCEL ? "vercel" : "cloud-run",
+      timestamp: new Date().toISOString() 
+    });
   });
 
   // Middleware de tratamento de erro para rotas da API (garante JSON sempre)
@@ -1740,7 +1756,13 @@ DIRETRIZES DE AUDITORIA:
     res.status(status).json({ error: message, success: false });
   });
 
+export default app;
+
+async function startServer() {
+  const PORT = 3000;
+
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -1759,4 +1781,7 @@ DIRETRIZES DE AUDITORIA:
   });
 }
 
-startServer();
+// Inicializa servidor autônomo apenas quando não estiver executando como Vercel Serverless Function
+if (!process.env.VERCEL) {
+  startServer();
+}

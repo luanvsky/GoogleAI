@@ -14,13 +14,24 @@ import {
   DollarSign, 
   ShieldAlert, 
   Calendar, 
-  Info,
-  X,
-  BookOpen,
-  PenTool,
-  GraduationCap
+  Info, 
+  X, 
+  BookOpen, 
+  PenTool, 
+  GraduationCap,
+  Landmark,
+  Layers,
+  Scale,
+  ScrollText,
+  Briefcase,
+  ShieldCheck
 } from 'lucide-react';
 import { DocType, ProcessAuditResult, ProcessRestriction } from '../types';
+import { SiafiDocumentsTable } from './SiafiDocumentsTable';
+import { ProcessDocumentsTable } from './ProcessDocumentsTable';
+import { ParecerTecnicoView } from './ParecerTecnicoView';
+import { ProcessEvidenceTable } from './ProcessEvidenceTable';
+import { DEMO_TAXAS_CREA } from '../data/demoScenarios';
 
 interface ProcessPdfAnalyzerProps {
   conformistaPadrao: string;
@@ -52,6 +63,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'visao_geral' | 'evidencias_encontradas' | 'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'checklist'>('visao_geral');
   const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
@@ -186,10 +198,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   };
 
   // Carregar Exemplo Demonstrativo para testes rápidos
-  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil') => {
+  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea') => {
     setErrorMessage('');
     setIsSaved(false);
-    if (scenario === 'auxilio_estudantil') {
+    setActiveDetailTab('visao_geral');
+    if (scenario === 'taxas_crea') {
+      setFile({ name: 'Processo_SEI_23060.001366_2026_Taxas_CREA_SE_ARTs.pdf', size: 2150400 } as File);
+      setAuditResult(DEMO_TAXAS_CREA);
+    } else if (scenario === 'auxilio_estudantil') {
       setFile({ name: 'Processo_SEI_23288.000650_2026_Auxilio_Estudantil_MNR.pdf', size: 1420500 } as File);
       setAuditResult({
         processo: '23288.000650/2026-29',
@@ -265,6 +281,64 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           'Cartas de Aceite dos Artigos e Trabalhos na MNR 2026 (Fl. 18 a 35)',
           'Relação Nominal dos Discentes Beneficiários e Contas PIX (Fl. 42)'
         ],
+        evidenciasEncontradas: [
+          {
+            campo: "Valor Total do Auxílio Financeiro",
+            valorOuConteudo: "R$ 21.420,00 (17 cotas de R$ 1.260,00 por discente)",
+            documentoOrigem: "Lista de Credores PIX - 2026LX000635 e Nota de Lançamento 2026NS009963",
+            categoria: "Valores",
+            impactoNoParecer: "Confirmou a equivalência perfeita entre a soma das cotas individuais dos 17 discentes e o montante global liquidado."
+          },
+          {
+            campo: "Retenções Tributárias (IN RFB 1.234/12)",
+            valorOuConteudo: "R$ 0,00 (Não Incidência)",
+            documentoOrigem: "Nota de Lançamento de Sistema nº 2026NS009963",
+            categoria: "Valores",
+            impactoNoParecer: "Correta aplicação da dispensa legal de retenções mercantis ou tributárias para auxílios de custeio alimentar a pessoas físicas."
+          },
+          {
+            campo: "Período do Evento Acadêmico (MNR 2026)",
+            valorOuConteudo: "23 a 29 de novembro de 2026",
+            documentoOrigem: "Cartas de Aceite MNR 2026 e Campo OBSERVAÇÃO da 2026NS009963",
+            categoria: "Datas",
+            impactoNoParecer: "Evidenciou a perfeita sincronia cronológica entre a concessão do auxílio e a realização do evento científico em João Pessoa/PB."
+          },
+          {
+            campo: "Data de Emissão da Nota de Lançamento",
+            valorOuConteudo: "18/11/2026",
+            documentoOrigem: "Nota de Lançamento de Sistema nº 2026NS009963",
+            categoria: "Datas",
+            impactoNoParecer: "Atestou antecedência regular do crédito orçamentário em relação à data de embarque dos discentes para a competição."
+          },
+          {
+            campo: "Assinatura do Ordenador de Despesas do Campus Lagarto",
+            valorOuConteudo: "Diretor Geral / Ordenador de Despesas do IFS Campus Lagarto",
+            documentoOrigem: "Despacho Autorizativo de Pagamento nº 1062246 (Art. 64 da Lei 4.320/64)",
+            categoria: "Assinaturas",
+            impactoNoParecer: "Comprovou a indispensável autorização legal do ordenador, exigência do art. 64 da Lei 4.320/64."
+          },
+          {
+            campo: "Comprovação de Elegibilidade e Aceite Científico",
+            valorOuConteudo: "Projetos de Robótica homologados e cartas de aceite na Mostra Nacional de Robótica",
+            documentoOrigem: "Documentos SEI anexos às Fls. 18 a 35",
+            categoria: "Atestes e Certidões",
+            impactoNoParecer: "Comprovou o mérito acadêmico e a legítima finalidade pública do repasse estudantil."
+          },
+          {
+            campo: "Relação Nominal dos 17 Discentes e Chaves PIX",
+            valorOuConteudo: "17 Estudantes com matrícula ativa, CPF e contas bancárias individuais cadastradas",
+            documentoOrigem: "Lista SIAFI CONLX nº 2026LX000635 e Relação SEI Fl. 42",
+            categoria: "Identificação / Favorecido",
+            impactoNoParecer: "Garantiram a correta individualização dos beneficiários e a segurança da transferência via Banco Central / BB."
+          },
+          {
+            campo: "Célula Orçamentária e Empenho Vinculado",
+            valorOuConteudo: "Natureza 33901801 (Auxílio Financeiro a Estudantes) - Empenho 2026NE000753",
+            documentoOrigem: "Nota de Empenho 2026NE000753 e Registro Orçamentário",
+            categoria: "Classificação Orçamentária",
+            impactoNoParecer: "Validou a correta apropriação no elemento de despesa 339018, dispensando nota fiscal por não haver relação comercial."
+          }
+        ],
         parecerConclusivo: 'Processo regularmente instruído. Conforme os arts. 62 a 64 da Lei nº 4.320/64 e a Macrofunção SIAFI 020314, a liquidação da despesa de auxílio financeiro estudantil encontra-se plenamente comprovada pela Lista de Credores PIX (2026LX000635), Nota de Lançamento de Sistema (2026NS009963) e Despacho Autorizativo do Ordenador de Despesas. Dispensa-se legalmente a emissão de nota fiscal mercantil e retenções tributárias da IN RFB 1.234/12. A escrita na observação contábil atende aos requisitos de clareza e fidedignidade, com ressalva meramente formal quanto à gralha tipográfica ("MA CIDADE" em vez de "NA CIDADE"), estando o processo apto para registro de conformidade SEM OCORRÊNCIA.',
         sugestaoConformista: 'Registrar a Conformidade de Gestão SEM OCORRÊNCIA no SIAFI e liberar a remessa bancária da lista de credores.',
         confiancaAnalise: 'Motor Especialista Normativo IFS (Auditado)'
@@ -318,6 +392,50 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           'Consulta SICAF / Certidões Tributárias (Fl. 30 a 34)',
           'Despacho Autorizativo de Pagamento (Fl. 36)'
         ],
+        evidenciasEncontradas: [
+          {
+            campo: "Valor Bruto Faturado na NF-e",
+            valorOuConteudo: "R$ 45.200,00",
+            documentoOrigem: "NF-e nº 10.458 (Fl. 18)",
+            categoria: "Valores",
+            impactoNoParecer: "Valor cobrado em conformidade com o saldo da fatura da prestação de serviços de limpeza."
+          },
+          {
+            campo: "Retenções Tributárias Federais (IN RFB 1.234/12)",
+            valorOuConteudo: "R$ 4.271,40 (Alíquota 9,45% com INSS 11%)",
+            documentoOrigem: "NF-e nº 10.458 e Guia de Retenção (Fl. 19)",
+            categoria: "Valores",
+            impactoNoParecer: "Cálculo exato das retenções fiscais obrigatórias de mão de obra exclusiva."
+          },
+          {
+            campo: "Data de Emissão da Nota Fiscal",
+            valorOuConteudo: "05/03/2026",
+            documentoOrigem: "NF-e nº 10.458 (Fl. 18)",
+            categoria: "Datas",
+            impactoNoParecer: "Documento emitido na vigência do contrato administrativo."
+          },
+          {
+            campo: "Ateste de Prestação de Serviços no Corpo da NF-e",
+            valorOuConteudo: "Ausente / Campo em branco (Sem carimbo ou assinatura)",
+            documentoOrigem: "NF-e nº 10.458 (Verso e anverso)",
+            categoria: "Assinaturas",
+            impactoNoParecer: "Motivou a Restrição SIAFI 004: Ausência de ateste formal da execução dos serviços pelo fiscal de contrato (Art. 63, § 2º, III da Lei 4.320/64)."
+          },
+          {
+            campo: "Certidão de Regularidade do FGTS (CRF)",
+            valorOuConteudo: "Vencida em 28/02/2026",
+            documentoOrigem: "Consulta Caixa / SICAF (Fl. 32)",
+            categoria: "Atestes e Certidões",
+            impactoNoParecer: "Motivou a Restrição SIAFI 006: Impedimento de liquidação regular por inadimplência trabalhista/FGTS na data do pagamento."
+          },
+          {
+            campo: "Assinatura do Ordenador de Despesas",
+            valorOuConteudo: "Despacho do Diretor Geral de Administração (SEI 1022340)",
+            documentoOrigem: "Despacho Autorizativo (Fl. 36)",
+            categoria: "Assinaturas",
+            impactoNoParecer: "Autorização de despesa presente nos autos, porém condicionada ao saneamento das certidões e ateste."
+          }
+        ],
         parecerConclusivo: 'Trata-se de processo de pagamento referente à prestação de serviços continuados de limpeza e conservação predial. Em exame preliminar de conformidade de registro de gestão fundamentado na Macrofunção SIAFI 020314 e Portaria IFS nº 1.633/2026, identificaram-se óbices que impedem a conformidade regular sem saneamento prévio: ausência de ateste formal na NF-e e certidão CRF vencida. Recomenda-se registrar CONFORMIDADE COM OCORRÊNCIA no SIAFI e notificar o setor demandante para juntada dos documentos pendentes.',
         sugestaoConformista: 'Registrar no SIAFI a Conformidade Diária COM OCORRÊNCIA (Restrições 004 e 006) e diligenciar o gestor do contrato.',
         confiancaAnalise: 'Alta (98%)'
@@ -353,6 +471,43 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           'Termo de Recebimento Definitivo de Materiais (Fl. 11)',
           'Comprovante de Regularidade no SICAF (Fl. 14)',
           'Despacho de Liquidação da Despesa (Fl. 16)'
+        ],
+        evidenciasEncontradas: [
+          {
+            campo: "Valor Total da Fatura / Livros Didáticos",
+            valorOuConteudo: "R$ 18.750,00",
+            documentoOrigem: "DANFE nº 4.190 (Fl. 08) e Empenho 2026NE000188",
+            categoria: "Valores",
+            impactoNoParecer: "Conferência aritmética exata dos preços unitários dos livros licitados com a dotação empenhada."
+          },
+          {
+            campo: "Retenções Tributárias Federais (IN RFB 1.234/12)",
+            valorOuConteudo: "R$ 1.096,88 (Alíquota 5,85% de bens)",
+            documentoOrigem: "DANFE nº 4.190 e Nota de Lançamento de Sistema",
+            categoria: "Valores",
+            impactoNoParecer: "Destaque correto no corpo da NF e recolhimento integral aos cofres da União via SIAFI."
+          },
+          {
+            campo: "Data de Recebimento Definitivo no Almoxarifado",
+            valorOuConteudo: "12/03/2026",
+            documentoOrigem: "Termo de Recebimento Definitivo de Bens (Fl. 11)",
+            categoria: "Datas",
+            impactoNoParecer: "Comprovou a entrega física no prazo contratual com inspeção qualitativa da comissão."
+          },
+          {
+            campo: "Assinaturas da Comissão de Recebimento de Materiais",
+            valorOuConteudo: "3 Servidores Efetivos designados pela Portaria IFS nº 412/2025",
+            documentoOrigem: "Termo de Recebimento Definitivo (Fl. 11)",
+            categoria: "Assinaturas",
+            impactoNoParecer: "Ateste formal incontestável da entrega dos materiais, cumprindo o art. 63 da Lei nº 4.320/64."
+          },
+          {
+            campo: "Certidão de Regularidade Fiscal SICAF Níveis I a VI",
+            valorOuConteudo: "Válida até 30/04/2026",
+            documentoOrigem: "Consulta SICAF / CNDs Federais e Trabalhistas (Fl. 14)",
+            categoria: "Atestes e Certidões",
+            impactoNoParecer: "Atestou a plena capacidade e regularidade fiscal do fornecedor perante o erário federal."
+          }
         ],
         parecerConclusivo: 'Examinada a documentação que instrui o presente processo, constata-se a integral regularidade fiscal, orçamentária e financeira dos atos praticados. A liquidação encontra-se amparada em empenho prévio idôneo, a entrega dos materiais foi formalmente atestada pela comissão competente, os tributos foram apurados nos exatos termos da IN RFB nº 1.234/2012 e o fornecedor encontra-se com situação regular no SICAF. Processo em estrita consonância com a Macrofunção SIAFI 020314 e o Manual de Conformidade de Registro de Gestão do IFS.',
         sugestaoConformista: 'Registrar a Conformidade Diária SEM OCORRÊNCIA no SIAFI.',
@@ -422,6 +577,22 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           </div>
 
           <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
+            <button
+              type="button"
+              onClick={() => loadDemoCase('taxas_crea')}
+              className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
+              title="Taxas do CREA-SE / ARTs (Dispensa de NF, Boletos BB PIX e Exame dos Documentos SIAFI)"
+            >
+              <Landmark className="w-3.5 h-3.5 text-blue-400" /> Exemplo Taxas CREA-SE
+            </button>
+            <button
+              type="button"
+              onClick={() => loadDemoCase('auxilio_estudantil')}
+              className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
+              title="Auxílio Estudantil MNR (Dispensa Legal de NF e Análise Contábil)"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-emerald-400" /> Exemplo Auxílio Estudantil
+            </button>
             <button
               type="button"
               onClick={() => loadDemoCase('com_restricao')}
@@ -602,14 +773,22 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
               <span className="text-[9px] uppercase font-black text-black/50 dark:text-white/50 tracking-widest block">
                 Exemplos de Simulação Normativa:
               </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => loadDemoCase('taxas_crea')}
+                  className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-blue-500 border border-black/10 dark:border-white/10 text-blue-700 dark:text-blue-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
+                  title="Taxas CREA-SE (ARTs / Boletos BB / Parecer e Docs SIAFI)"
+                >
+                  <Landmark className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" /> Taxas CREA-SE
+                </button>
                 <button
                   type="button"
                   onClick={() => loadDemoCase('auxilio_estudantil')}
                   className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-emerald-500 border border-black/10 dark:border-white/10 text-emerald-700 dark:text-emerald-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
                   title="Auxílio Estudantil MNR (Dispensa Legal de NF e Análise Contábil)"
                 >
-                  <GraduationCap className="w-3 h-3 shrink-0" /> Auxílio Estudantil
+                  <GraduationCap className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" /> Auxílio Estudantil
                 </button>
                 <button
                   type="button"
@@ -617,7 +796,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-red-500 border border-black/10 dark:border-white/10 text-red-700 dark:text-red-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
                   title="Serviço Comercial com Restrições (Falta de Ateste e CND Vencida)"
                 >
-                  <AlertTriangle className="w-3 h-3 shrink-0" /> Com Ocorrência
+                  <AlertTriangle className="w-3 h-3 shrink-0 text-red-600 dark:text-red-400" /> Com Ocorrência
                 </button>
                 <button
                   type="button"
@@ -856,7 +1035,106 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </div>
               )}
 
-              {/* METADATA SUMMARY CARDS */}
+              {/* DETAIL TABS NAVIGATION */}
+              <div className="flex items-center gap-1.5 p-1.5 bg-gray-100 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 overflow-x-auto shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('visao_geral')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'visao_geral'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" /> Visão Geral
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('evidencias_encontradas')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'evidencias_encontradas'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Evidências Encontradas
+                  {auditResult.evidenciasEncontradas && auditResult.evidenciasEncontradas.length > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-blue-600 text-white font-mono font-black">
+                      {auditResult.evidenciasEncontradas.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('documentos_siafi')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'documentos_siafi'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Landmark className="w-3.5 h-3.5 text-blue-500" /> Documentos SIAFI
+                  {auditResult.documentosSiafiAnalisados && auditResult.documentosSiafiAnalisados.length > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-blue-600 text-white font-mono font-black">
+                      {auditResult.documentosSiafiAnalisados.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('documentos_sei')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'documentos_sei'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-neutral-500" /> Documentos SEI
+                  {((auditResult.documentosProcessuaisDetalhados?.length || 0) > 0 || (auditResult.documentosIdentificados?.length || 0) > 0) && (
+                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-neutral-600 text-white font-mono font-black">
+                      {auditResult.documentosProcessuaisDetalhados?.length || auditResult.documentosIdentificados?.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('parecer_tecnico')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'parecer_tecnico'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Scale className="w-3.5 h-3.5 text-emerald-500" /> Parecer do Conformista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('escrita_contabil')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'escrita_contabil'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5 text-amber-500" /> Escrita Contábil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('checklist')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'checklist'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Checklist
+                </button>
+              </div>
+
+              {/* TAB 1: VISÃO GERAL */}
+              {activeDetailTab === 'visao_geral' && (
+                <div className="space-y-4">
+                  {/* METADATA SUMMARY CARDS */}
               <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-4 transition-colors">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-xs font-black uppercase tracking-widest text-black/60 dark:text-white/60 flex items-center gap-2">
@@ -867,9 +1145,12 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${
                       auditResult.naturezaProcesso === 'AUXILIO_ESTUDANTIL'
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300'
+                        : auditResult.naturezaProcesso === 'TAXAS_E_CONTRIBUICOES'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300'
                         : 'bg-black/5 dark:bg-white/10 text-black/70 dark:text-white/70'
                     }`}>
                       {auditResult.naturezaProcesso === 'AUXILIO_ESTUDANTIL' && <GraduationCap className="w-3 h-3" />}
+                      {auditResult.naturezaProcesso === 'TAXAS_E_CONTRIBUICOES' && <Landmark className="w-3 h-3" />}
                       Natureza: {auditResult.naturezaProcesso.replace(/_/g, ' ')}
                     </span>
                   )}
@@ -885,6 +1166,21 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                       </div>
                       <p className="text-[11px] leading-relaxed text-emerald-900/90 dark:text-emerald-200/90">
                         O processo constitui repasse pecuniário direto a discentes (elemento 3.3.90.18 - Auxílio Financeiro a Estudantes). <strong>Não se aplica a exigência de Nota Fiscal (DANFE)</strong> nem certidões fiscais/trabalhistas de fornecedor mercantil. O documento hábil legítimo de liquidação e suporte é a <strong>Lista de Credores PIX (CONLX)</strong> associada à <strong>Nota de Lançamento de Sistema (NS)</strong> e Autorização expressa do Ordenador de Despesas.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Specific Legal Dispensation Banner for Taxas e Contribuições (CREA-SE) */}
+                {auditResult.naturezaProcesso === 'TAXAS_E_CONTRIBUICOES' && (
+                  <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-300/80 dark:border-blue-800/60 rounded-xl flex items-start gap-3 text-blue-900 dark:text-blue-200">
+                    <Landmark className="w-5 h-5 text-blue-700 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <div className="font-black uppercase tracking-wider text-[10px] text-blue-800 dark:text-blue-300">
+                        Taxas Públicas e ARTs ao CREA-SE (Leis nº 5.194/66 e 6.496/77)
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-blue-900/90 dark:text-blue-200/90">
+                        O processo refere-se ao pagamento de taxas legais e Anotações de Responsabilidade Técnica (ARTs) devidas a conselho autárquico de fiscalização profissional. <strong>Não se aplica a exigência de Nota Fiscal mercantil</strong>. A liquidação está regularmente amparada em <strong>Boletos Bancários do Banco do Brasil com QR Code PIX</strong>, <strong>espelhos/minutas das ARTs no SITAC</strong> e <strong>Atestado formal de Liquidação</strong> emitido pelo setor de engenharia. Retenções na fonte da IN RFB nº 1.234/2012 não são devidas.
                       </p>
                     </div>
                   </div>
@@ -978,144 +1274,248 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* ANÁLISE CRITERIOSA DA ESCRITA CONTÁBIL (MACROFUNÇÃO SIAFI 020314) */}
-              {auditResult.analiseDescricaoContabil && (
-                <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-4 transition-colors">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
-                      <PenTool className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" />
-                      Análise Criteriosa da Escrita Contábil (Macrofunção SIAFI 020314)
-                    </h4>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                      auditResult.analiseDescricaoContabil.qualidadeRedacao === 'Excelente'
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300'
-                        : auditResult.analiseDescricaoContabil.qualidadeRedacao === 'Regular com Ressalvas'
-                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300'
-                        : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 border border-red-300'
-                    }`}>
-                      Qualidade: {auditResult.analiseDescricaoContabil.qualidadeRedacao}
-                    </span>
-                  </div>
-
-                  {/* Transcrição da Observação */}
-                  <div className="space-y-1.5">
-                    <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
-                      Transcrição do Campo OBSERVAÇÃO (Documento SIAFI)
-                    </span>
-                    <div className="p-3.5 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl font-mono text-[11px] text-black/90 dark:text-white/90 leading-relaxed break-words">
-                      "{auditResult.analiseDescricaoContabil.textoObservacao}"
-                    </div>
-                  </div>
-
-                  {/* Avaliação Criteriosa */}
-                  <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
-                      Avaliação Técnica do Conformista
-                    </span>
-                    <p className="text-xs text-black/80 dark:text-white/80 leading-relaxed font-sans">
-                      {auditResult.analiseDescricaoContabil.avaliacaoCriteriosa}
-                    </p>
-                  </div>
-
-                  {/* Elementos Identificados */}
-                  {auditResult.analiseDescricaoContabil.elementosIdentificados?.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/10">
-                      <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
-                        Elementos Normativos Identificados na Redação
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {auditResult.analiseDescricaoContabil.elementosIdentificados.map((el: string, i: number) => (
-                          <div key={i} className="flex items-start gap-1.5 text-[11px] text-black/80 dark:text-white/80 bg-gray-50 dark:bg-[#202326] p-2 rounded-lg border border-black/5 dark:border-white/10">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00FF00] shrink-0 mt-0.5" />
-                            <span>{el}</span>
+                {/* Quick Access to Evidencias, SIAFI and SEI detailed reports */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-black/5 dark:border-white/10">
+                  {auditResult.evidenciasEncontradas && auditResult.evidenciasEncontradas.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('evidencias_encontradas')}
+                      className="p-3 bg-blue-50/70 dark:bg-blue-950/30 hover:bg-blue-100/70 dark:hover:bg-blue-950/50 border border-blue-200 dark:border-blue-900/50 rounded-xl text-left transition-all flex items-center justify-between group col-span-full"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                        <div>
+                          <div className="text-xs font-black text-blue-950 dark:text-blue-200">
+                            {auditResult.evidenciasEncontradas.length} Evidências Encontradas (Valores, Datas, Assinaturas e Atestes)
                           </div>
-                        ))}
+                          <div className="text-[10px] text-blue-800/70 dark:text-blue-300/70">
+                            Ver relação detalhada dos campos do documento original que embasaram o parecer técnico final
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                      <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform" />
+                    </button>
                   )}
 
-                  {/* Apontamentos ou Gralhas */}
-                  {auditResult.analiseDescricaoContabil.apontamentosOuGralhas?.length > 0 && (
-                    <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-amber-900 dark:text-amber-300 font-black text-[10px] uppercase tracking-wider">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-                        Apontamentos de Escrita e Gralhas Tipográficas
+                  {auditResult.documentosSiafiAnalisados && auditResult.documentosSiafiAnalisados.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('documentos_siafi')}
+                      className="p-3 bg-blue-50/60 dark:bg-blue-950/20 hover:bg-blue-100/60 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-900/40 rounded-xl text-left transition-all flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Landmark className="w-5 h-5 text-blue-700 dark:text-blue-400" />
+                        <div>
+                          <div className="text-xs font-black text-blue-950 dark:text-blue-200">
+                            {auditResult.documentosSiafiAnalisados.length} Documentos SIAFI Auditados
+                          </div>
+                          <div className="text-[10px] text-blue-800/70 dark:text-blue-300/70">
+                            {auditResult.documentosSiafiAnalisados.map(d => d.tipo).join(', ')}
+                          </div>
+                        </div>
                       </div>
-                      <ul className="space-y-1 text-[11px] text-amber-900/90 dark:text-amber-200/90 list-disc pl-4 leading-relaxed font-sans">
-                        {auditResult.analiseDescricaoContabil.apontamentosOuGralhas.map((ap: string, i: number) => (
-                          <li key={i}>{ap}</li>
-                        ))}
-                      </ul>
+                      <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveDetailTab('parecer_tecnico')}
+                    className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/40 rounded-xl text-left transition-all flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Scale className="w-5 h-5 text-emerald-700 dark:text-[#00FF00]" />
+                      <div>
+                        <div className="text-xs font-black text-emerald-950 dark:text-emerald-200">
+                          Parecer Técnico Estruturado
+                        </div>
+                        <div className="text-[10px] text-emerald-800/70 dark:text-emerald-300/70">
+                          10 seções analíticas completas
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-emerald-600 dark:text-[#00FF00] group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </div>
+
+                  {/* PARECER TÉCNICO CONCLUSIVO */}
+                  <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-3 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-black dark:text-white" />
+                        Parecer Oficial do Conformista de Registro de Gestão
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={copyParecer}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all text-black dark:text-white"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600 dark:text-[#00FF00]" /> Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" /> Copiar Parecer
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="p-4 bg-gray-50 dark:bg-[#202326] rounded-xl border border-black/5 dark:border-white/10 font-serif text-xs text-black/90 dark:text-white/90 leading-relaxed whitespace-pre-wrap">
+                      {auditResult.parecerConclusivo}
+                    </div>
+
+                    {auditResult.sugestaoConformista && (
+                      <div className="p-3 bg-black dark:bg-[#0C0D0E] text-[#00FF00] rounded-xl text-xs font-mono flex items-center gap-2 border border-white/10">
+                        <Info className="w-4 h-4 shrink-0 text-[#00FF00]" />
+                        <span><strong>Orientação SIAFI:</strong> {auditResult.sugestaoConformista}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: EVIDÊNCIAS ENCONTRADAS */}
+              {activeDetailTab === 'evidencias_encontradas' && (
+                <ProcessEvidenceTable evidencias={auditResult.evidenciasEncontradas} />
+              )}
+
+              {/* TAB: DOCUMENTOS SIAFI */}
+              {activeDetailTab === 'documentos_siafi' && (
+                <SiafiDocumentsTable documentos={auditResult.documentosSiafiAnalisados} />
+              )}
+
+              {/* TAB 3: DOCUMENTOS SEI */}
+              {activeDetailTab === 'documentos_sei' && (
+                <ProcessDocumentsTable 
+                  documentos={auditResult.documentosProcessuaisDetalhados} 
+                  fallbackDocs={auditResult.documentosIdentificados} 
+                />
+              )}
+
+              {/* TAB 4: PARECER TÉCNICO ESTRUTURADO */}
+              {activeDetailTab === 'parecer_tecnico' && (
+                <ParecerTecnicoView 
+                  parecer={auditResult.parecerTecnicoEstruturado} 
+                  parecerConclusivoSimples={auditResult.parecerConclusivo} 
+                  sugestaoConformista={auditResult.sugestaoConformista} 
+                />
+              )}
+
+              {/* TAB 5: ESCRITA CONTÁBIL (MACROFUNÇÃO SIAFI 020314) */}
+              {activeDetailTab === 'escrita_contabil' && (
+                <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-4 transition-colors">
+                  {auditResult.analiseDescricaoContabil ? (
+                    <>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
+                          <PenTool className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" />
+                          Análise Criteriosa da Escrita Contábil (Macrofunção SIAFI 020314)
+                        </h4>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                          auditResult.analiseDescricaoContabil.qualidadeRedacao === 'Excelente'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300'
+                            : auditResult.analiseDescricaoContabil.qualidadeRedacao === 'Regular com Ressalvas'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 border border-red-300'
+                        }`}>
+                          Qualidade: {auditResult.analiseDescricaoContabil.qualidadeRedacao}
+                        </span>
+                      </div>
+
+                      {/* Transcrição da Observação */}
+                      <div className="space-y-1.5">
+                        <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
+                          Transcrição do Campo OBSERVAÇÃO (Documento SIAFI)
+                        </span>
+                        <div className="p-3.5 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl font-mono text-[11px] text-black/90 dark:text-white/90 leading-relaxed break-words">
+                          "{auditResult.analiseDescricaoContabil.textoObservacao}"
+                        </div>
+                      </div>
+
+                      {/* Avaliação Criteriosa */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
+                          Avaliação Técnica do Conformista
+                        </span>
+                        <p className="text-xs text-black/80 dark:text-white/80 leading-relaxed font-sans">
+                          {auditResult.analiseDescricaoContabil.avaliacaoCriteriosa}
+                        </p>
+                      </div>
+
+                      {/* Elementos Identificados */}
+                      {auditResult.analiseDescricaoContabil.elementosIdentificados?.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/10">
+                          <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest block">
+                            Elementos Normativos Identificados na Redação
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                            {auditResult.analiseDescricaoContabil.elementosIdentificados.map((el: string, i: number) => (
+                              <div key={i} className="flex items-start gap-1.5 text-[11px] text-black/80 dark:text-white/80 bg-gray-50 dark:bg-[#202326] p-2 rounded-lg border border-black/5 dark:border-white/10">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00FF00] shrink-0 mt-0.5" />
+                                <span>{el}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Apontamentos ou Gralhas */}
+                      {auditResult.analiseDescricaoContabil.apontamentosOuGralhas?.length > 0 && (
+                        <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-amber-900 dark:text-amber-300 font-black text-[10px] uppercase tracking-wider">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                            Apontamentos de Escrita e Gralhas Tipográficas
+                          </div>
+                          <ul className="space-y-1 text-[11px] text-amber-900/90 dark:text-amber-200/90 list-disc pl-4 leading-relaxed font-sans">
+                            {auditResult.analiseDescricaoContabil.apontamentosOuGralhas.map((ap: string, i: number) => (
+                              <li key={i}>{ap}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-8 text-center text-xs text-black/50 dark:text-white/50 space-y-2">
+                      <PenTool className="w-6 h-6 mx-auto text-black/30 dark:text-white/30" />
+                      <div>Nenhum texto de observação contábil individualizado para auditoria textual direta.</div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* CHECKLIST AVALIADO */}
-              <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-3 transition-colors">
-                <h4 className="text-xs font-black uppercase tracking-widest text-black/60 dark:text-white/60 flex items-center justify-between">
-                  <span>Itens de Conformidade Avaliados</span>
-                  <span className="text-[10px] text-black/40 dark:text-white/40 font-normal">Macrofunção 020314</span>
-                </h4>
-
-                <div className="space-y-2">
-                  {auditResult.checklistAvaliado?.map((check, idx) => (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-[#202326] rounded-xl border border-black/5 dark:border-white/10 flex items-start justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-black/90 dark:text-white/90">{check.item}</div>
-                        <div className="text-[10px] text-black/60 dark:text-white/60">{check.observacao}</div>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ${
-                        check.status === 'CONFORME'
-                          ? 'bg-[#00FF00]/20 dark:bg-[#00FF00]/15 text-emerald-800 dark:text-[#00FF00] border border-[#00FF00]/40'
-                          : check.status === 'NÃO CONFORME'
-                          ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/50'
-                          : 'bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300'
-                      }`}>
-                        {check.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* PARECER TÉCNICO CONCLUSIVO */}
-              <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-3 transition-colors">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-black dark:text-white" />
-                    Parecer Oficial do Conformista de Registro de Gestão
+              {/* TAB 6: CHECKLIST AVALIADO */}
+              {activeDetailTab === 'checklist' && (
+                <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-3 transition-colors">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-black/60 dark:text-white/60 flex items-center justify-between">
+                    <span>Itens de Conformidade Avaliados</span>
+                    <span className="text-[10px] text-black/40 dark:text-white/40 font-normal">Macrofunção 020314</span>
                   </h4>
-                  <button
-                    type="button"
-                    onClick={copyParecer}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all text-black dark:text-white"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600 dark:text-[#00FF00]" /> Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" /> Copiar Parecer
-                      </>
-                    )}
-                  </button>
-                </div>
 
-                <div className="p-4 bg-gray-50 dark:bg-[#202326] rounded-xl border border-black/5 dark:border-white/10 font-serif text-xs text-black/90 dark:text-white/90 leading-relaxed whitespace-pre-wrap">
-                  {auditResult.parecerConclusivo}
-                </div>
-
-                {auditResult.sugestaoConformista && (
-                  <div className="p-3 bg-black dark:bg-[#0C0D0E] text-[#00FF00] rounded-xl text-xs font-mono flex items-center gap-2 border border-white/10">
-                    <Info className="w-4 h-4 shrink-0 text-[#00FF00]" />
-                    <span><strong>Orientação SIAFI:</strong> {auditResult.sugestaoConformista}</span>
+                  <div className="space-y-2">
+                    {auditResult.checklistAvaliado?.map((check, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 dark:bg-[#202326] rounded-xl border border-black/5 dark:border-white/10 flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="text-xs font-bold text-black/90 dark:text-white/90">{check.item}</div>
+                          <div className="text-[10px] text-black/60 dark:text-white/60">{check.observacao}</div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ${
+                          check.status === 'CONFORME'
+                            ? 'bg-[#00FF00]/20 dark:bg-[#00FF00]/15 text-emerald-800 dark:text-[#00FF00] border border-[#00FF00]/40'
+                            : check.status === 'NÃO CONFORME'
+                            ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/50'
+                            : 'bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {check.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* INTEGRATION ACTIONS */}
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">

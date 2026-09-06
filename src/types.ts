@@ -537,6 +537,90 @@ export interface ProcessChecklistItem {
   observacao: string;
 }
 
+export interface SiafiDocumentAudit {
+  tipo: "NC" | "RO" | "NE" | "NS" | "NP" | "OB" | "DARF";
+  numero: string;
+  data: string;
+  valor: number;
+  favorecido?: string;
+  eventos?: string[];
+  classificacaoOuContas?: string;
+  descricaoOuObservacao?: string;
+  signatarios?: string[];
+  status: "REGULAR" | "RESSALVA" | "IRREGULAR";
+  parecerTecnico: string;
+}
+
+export interface ProcessDocumentDetail {
+  tipo: string;
+  numeroSei: string;
+  folhaOuPagina?: string;
+  descricao: string;
+  signatarioOuSetor?: string;
+  data?: string;
+  statusConformidade: "CONFORME" | "NÃO SE APLICA" | "COM PENDÊNCIA";
+}
+
+export interface NormaAplicavelAuditada {
+  norma: string;
+  esferaOuOrgao: string;
+  aplicacaoNoProcesso: string;
+  fundamentacaoLegal: string;
+  statusAtendimento: "CONFORME" | "VIOLADA" | "NÃO SE APLICA" | "RESSALVA FORMAL";
+}
+
+export interface InconsistenciaAuditada {
+  item: string;
+  tipoInconsistencia: "MATERIAL" | "FORMAL" | "TRIBUTÁRIA" | "ORÇAMENTÁRIA" | "PROCEDIMENTAL" | "SEM INCONSISTÊNCIA";
+  descricao: string;
+  fundamentacaoLegal: string;
+  impactoRisco: "IMPEDITIVO" | "GRAVE" | "LEVE / FORMAL" | "NENHUM / CONFORME";
+  acaoSaneadoraOuJustificativa: string;
+}
+
+export interface AuditoriaSiafiProfunda {
+  estagioOrcamentario: string;
+  estagioLiquidacao: string;
+  estagioPagamento: string;
+  conformidadeTributaria: string;
+  fidedignidadeEscritaContabil: string;
+  segregacaoFuncoes: string;
+  totalDocumentosSiafiAuditados?: number;
+  documentosSiafiApurados?: string[];
+}
+
+export interface ParecerTecnicoConformista {
+  identificacao: {
+    processoSei: string;
+    ugGestao: string;
+    unidadeDemandante: string;
+    favorecido: string;
+    cnpjFavorecido: string;
+    enquadramentoLegal: string;
+    valorTotalProcesso?: string;
+  };
+  resumoObjeto: string;
+  analiseInstrucaoProcessual: string;
+  analiseExecucaoOrcamentariaFinanceira: string;
+  analiseDocumentoHabilELiquidacao: string;
+  analiseTributariaERetencoes: string;
+  analiseDocumentosSiafi: string;
+  analiseEscritaObservacoesContabeis: string;
+  conclusaoEEncaminhamento: string;
+  registroSugerido: "SEM OCORRÊNCIA" | "COM OCORRÊNCIA";
+  normasAplicaveis?: NormaAplicavelAuditada[];
+  inconsistenciasDetectadas?: InconsistenciaAuditada[];
+  auditoriaSiafiProfunda?: AuditoriaSiafiProfunda;
+}
+
+export interface ProcessEvidence {
+  campo: string;
+  valorOuConteudo: string;
+  documentoOrigem: string;
+  categoria: "Valores" | "Datas" | "Assinaturas" | "Classificação Orçamentária" | "Identificação / Favorecido" | "Atestes e Certidões" | "Normativo / Autorizativo";
+  impactoNoParecer: string;
+}
+
 export interface ProcessAuditResult {
   processo: string;
   numeroDoc: string;
@@ -555,10 +639,14 @@ export interface ProcessAuditResult {
   restricoesDetectadas: ProcessRestriction[];
   checklistAvaliado: ProcessChecklistItem[];
   documentosIdentificados: string[];
+  evidenciasEncontradas?: ProcessEvidence[];
+  documentosSiafiAnalisados?: SiafiDocumentAudit[];
+  documentosProcessuaisDetalhados?: ProcessDocumentDetail[];
+  parecerTecnicoEstruturado?: ParecerTecnicoConformista;
   parecerConclusivo: string;
   sugestaoConformista: string;
   confiancaAnalise?: string;
-  naturezaProcesso?: "AQUISIÇÃO_OU_SERVIÇO" | "AUXILIO_ESTUDANTIL" | "DIARIAS_OU_PASSAGENS" | "FOLHA_OU_BENEFICIOS" | "OUTROS";
+  naturezaProcesso?: "AQUISIÇÃO_OU_SERVIÇO" | "AUXILIO_ESTUDANTIL" | "TAXAS_E_CONTRIBUICOES" | "DIARIAS_OU_PASSAGENS" | "FOLHA_OU_BENEFICIOS" | "OUTROS";
   analiseDescricaoContabil?: {
     textoObservacao?: string;
     qualidadeRedacao?: "Excelente" | "Regular com Ressalvas" | "Deficiente / Incompleta";

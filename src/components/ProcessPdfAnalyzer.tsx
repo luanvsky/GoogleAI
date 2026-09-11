@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   FileUp, 
   Sparkles, 
@@ -24,14 +24,16 @@ import {
   Scale,
   ScrollText,
   Briefcase,
-  ShieldCheck
+  ShieldCheck,
+  Calculator
 } from 'lucide-react';
 import { DocType, ProcessAuditResult, ProcessRestriction } from '../types';
 import { SiafiDocumentsTable } from './SiafiDocumentsTable';
 import { ProcessDocumentsTable } from './ProcessDocumentsTable';
 import { ParecerTecnicoView } from './ParecerTecnicoView';
 import { ProcessEvidenceTable } from './ProcessEvidenceTable';
-import { DEMO_TAXAS_CREA } from '../data/demoScenarios';
+import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO } from '../data/demoScenarios';
+import { ConfrontoCalculadoraTributaria } from './ConfrontoCalculadoraTributaria';
 
 interface ProcessPdfAnalyzerProps {
   conformistaPadrao: string;
@@ -53,9 +55,11 @@ interface ProcessPdfAnalyzerProps {
     observacao: string;
     checklist: Record<string, boolean>;
   }) => Promise<void>;
+  onOpenCalculator?: () => void;
+  onAuditChange?: (audit: ProcessAuditResult) => void;
 }
 
-export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveToHistory }: ProcessPdfAnalyzerProps) {
+export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveToHistory, onOpenCalculator, onAuditChange }: ProcessPdfAnalyzerProps) {
   const [file, setFile] = useState<File | null>(null);
   const [fileBase64, setFileBase64] = useState<string>('');
   const [conformista, setConformista] = useState<string>(conformistaPadrao || '');
@@ -63,13 +67,20 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<'visao_geral' | 'evidencias_encontradas' | 'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'checklist'>('visao_geral');
+  const [activeDetailTab, setActiveDetailTab] = useState<'visao_geral' | 'calculadora_confronto' | 'evidencias_encontradas' | 'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'checklist'>('visao_geral');
   const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [dragActive, setDragActive] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sincroniza o resultado da auditoria com o componente pai / Calculadora Tributária
+  useEffect(() => {
+    if (auditResult && onAuditChange) {
+      onAuditChange(auditResult);
+    }
+  }, [auditResult, onAuditChange]);
 
   // Manipulação de Upload do Arquivo
   const handleFileChange = (selectedFile: File) => {
@@ -198,13 +209,21 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   };
 
   // Carregar Exemplo Demonstrativo para testes rápidos
-  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea') => {
+  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea' | 'divergencia_calculo') => {
     setErrorMessage('');
     setIsSaved(false);
+    if (scenario === 'divergencia_calculo') {
+      setFile({ name: 'Processo_SEI_23060.002891_2026_NF_Servicos_TI_Divergencia.pdf', size: 1850300 } as File);
+      setAuditResult(DEMO_DIVERGENCIA_CALCULO);
+      setActiveDetailTab('calculadora_confronto');
+      onAuditChange?.(DEMO_DIVERGENCIA_CALCULO);
+      return;
+    }
     setActiveDetailTab('visao_geral');
     if (scenario === 'taxas_crea') {
       setFile({ name: 'Processo_SEI_23060.001366_2026_Taxas_CREA_SE_ARTs.pdf', size: 2150400 } as File);
       setAuditResult(DEMO_TAXAS_CREA);
+      onAuditChange?.(DEMO_TAXAS_CREA);
     } else if (scenario === 'auxilio_estudantil') {
       setFile({ name: 'Processo_SEI_23288.000650_2026_Auxilio_Estudantil_MNR.pdf', size: 1420500 } as File);
       setAuditResult({
@@ -516,6 +535,55 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
     }
   };
 
+  const handleApplyConfrontoRestriction = (restriction: ProcessRestriction) => {
+    if (!auditResult) return;
+    
+    const existingIndex = auditResult.restricoesDetectadas.findIndex(r => r.codigo.startsWith('005'));
+    let updatedRestricoes = [...auditResult.restricoesDetectadas];
+    if (existingIndex >= 0) {
+      updatedRestricoes[existingIndex] = restriction;
+    } else {
+      updatedRestricoes.push(restriction);
+    }
+
+    const updatedChecklist = [...auditResult.checklistAvaliado];
+    const checkIdx = updatedChecklist.findIndex(c => 
+      c.item.toLowerCase().includes('retenções') || 
+      c.item.toLowerCase().includes('1234') || 
+      c.item.toLowerCase().includes('cálculo')
+    );
+    if (checkIdx >= 0) {
+      updatedChecklist[checkIdx] = {
+        ...updatedChecklist[checkIdx],
+        status: 'NÃO CONFORME',
+        observacao: `Divergência apurada no confronto legal (IN RFB 1.234/12): ${restriction.titulo}. ${restriction.descricao}`
+      };
+    } else {
+      updatedChecklist.push({
+        item: 'Cálculo e Retenções Tributárias (IN RFB nº 1.234/2012)',
+        status: 'NÃO CONFORME',
+        observacao: `Divergência apurada: ${restriction.titulo}. Infração ao Art. 2º da IN RFB 1.234/12.`
+      });
+    }
+
+    let updatedParecer = auditResult.parecerConclusivo;
+    if (!updatedParecer.includes('Restrição 005')) {
+      updatedParecer += ` [RIGOR NORMATIVO APLICADO]: Identificada divergência em retenções tributárias na fonte conforme a IN RFB nº 1.234/2012 e Lei nº 4.320/64. Aplicada formalmente a Restrição 005 (${restriction.titulo}). Parecer conclusivo alterado para COM OCORRÊNCIA.`;
+    }
+
+    const updatedAudit: ProcessAuditResult = {
+      ...auditResult,
+      resultado: 'COM OCORRÊNCIA',
+      restricoesDetectadas: updatedRestricoes,
+      checklistAvaliado: updatedChecklist,
+      parecerConclusivo: updatedParecer,
+      sugestaoConformista: 'Registrar no SIAFI a Conformidade dos Registros de Gestão COM OCORRÊNCIA (Restrição 005 - Impeditiva) até que a Unidade Gestora efetue a retenção fiscal devida.'
+    };
+
+    setAuditResult(updatedAudit);
+    onAuditChange?.(updatedAudit);
+  };
+
   const copyParecer = () => {
     if (!auditResult?.parecerConclusivo) return;
     navigator.clipboard.writeText(auditResult.parecerConclusivo);
@@ -577,6 +645,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           </div>
 
           <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
+            <button
+              type="button"
+              onClick={() => loadDemoCase('divergencia_calculo')}
+              className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
+              title="Testar Rigor Normativo: Divergência de Cálculo Tributário e Retenção a Menor na NF (Restrição 005)"
+            >
+              <Calculator className="w-3.5 h-3.5 text-rose-400" /> Exemplo Divergência de Cálculo (IN 1234/12)
+            </button>
             <button
               type="button"
               onClick={() => loadDemoCase('taxas_crea')}
@@ -1050,6 +1126,26 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveDetailTab('calculadora_confronto')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeDetailTab === 'calculadora_confronto'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Calculator className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Calculadora & Confronto Legal
+                  {auditResult.confrontoCalculadora?.statusConfronto === 'DIVERGENCIA_DETECTADA' || auditResult.restricoesDetectadas.some(r => r.codigo.startsWith('005')) ? (
+                    <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-red-600 text-white font-mono font-black animate-pulse">
+                      DIVERGÊNCIA
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-emerald-600 text-white font-mono font-black">
+                      IN 1234/12
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveDetailTab('evidencias_encontradas')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                     activeDetailTab === 'evidencias_encontradas'
@@ -1256,6 +1352,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                         {auditResult.valores.detalheRetencoes}
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('calculadora_confronto')}
+                      className="w-full mt-2 py-1.5 px-2.5 bg-black hover:bg-black/90 dark:bg-[#00FF00] dark:hover:bg-[#00CC00] text-[#00FF00] dark:text-black rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Calculator className="w-3.5 h-3.5" /> Confrontar com Calculadora & Normas
+                    </button>
                   </div>
                 </div>
 
@@ -1376,6 +1480,15 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* TAB: CALCULADORA & CONFRONTO TRIBUTÁRIO */}
+              {activeDetailTab === 'calculadora_confronto' && (
+                <ConfrontoCalculadoraTributaria 
+                  auditResult={auditResult}
+                  onApplyRestriction={handleApplyConfrontoRestriction}
+                  onOpenFullCalculator={onOpenCalculator}
+                />
               )}
 
               {/* TAB: EVIDÊNCIAS ENCONTRADAS */}

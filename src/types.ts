@@ -621,6 +621,28 @@ export interface ProcessEvidence {
   impactoNoParecer: string;
 }
 
+export interface ConfrontoCalculadora {
+  valorBrutoProcesso: number;
+  retencaoProcesso: number;
+  valorLiquidoProcesso: number;
+  regraId: string;
+  regraLabel: string;
+  aliquotaTotal: number;
+  irCalculado: number;
+  csllCalculado: number;
+  cofinsCalculado: number;
+  pisCalculado: number;
+  issCalculado: number;
+  inssCalculado: number;
+  retencoesLegaisTotais: number;
+  valorLiquidoCalculado: number;
+  diferencaRetencao: number; // Retenção Calculada Legal - Retenção Processo
+  diferencaLiquido: number;  // Líquido Calculado Legal - Líquido Processo
+  statusConfronto: "CONVERGENTE" | "DIVERGENCIA_DETECTADA" | "ISENTO_OU_DISPENSADO";
+  justificativaNormativa: string;
+  restricaoAplicada?: string;
+}
+
 export interface ProcessAuditResult {
   processo: string;
   numeroDoc: string;
@@ -647,6 +669,7 @@ export interface ProcessAuditResult {
   sugestaoConformista: string;
   confiancaAnalise?: string;
   naturezaProcesso?: "AQUISIÇÃO_OU_SERVIÇO" | "AUXILIO_ESTUDANTIL" | "TAXAS_E_CONTRIBUICOES" | "DIARIAS_OU_PASSAGENS" | "FOLHA_OU_BENEFICIOS" | "OUTROS";
+  confrontoCalculadora?: ConfrontoCalculadora;
   analiseDescricaoContabil?: {
     textoObservacao?: string;
     qualidadeRedacao?: "Excelente" | "Regular com Ressalvas" | "Deficiente / Incompleta";

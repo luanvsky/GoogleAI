@@ -17,110 +17,322 @@ import {
   Calculator, 
   Sparkles,
   Sun,
-  Moon
+  Moon,
+  Scale,
+  Copy,
+  Check,
+  ArrowRight,
+  ShieldAlert
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
-import { DocType, Analysis, CHECKLIST_BY_TYPE, RESTRICOES, DOC_GUIDES, TAX_RULES, TaxRule } from './types';
+import { DocType, Analysis, CHECKLIST_BY_TYPE, RESTRICOES, DOC_GUIDES, TAX_RULES, TaxRule, ProcessAuditResult } from './types';
 import { ProcessPdfAnalyzer } from './components/ProcessPdfAnalyzer';
 import { HistoryStatistics } from './components/HistoryStatistics';
 
-function TaxCalculator() {
-  const [grossValue, setGrossValue] = useState<number>(0);
-  const [selectedRule, setSelectedRule] = useState<TaxRule>(TAX_RULES[2]); // Default: Demais Serviços
-  const [issRate, setIssRate] = useState<number>(2);
+interface TaxCalculatorProps {
+  initialAudit?: ProcessAuditResult | null;
+  onApplyToForm?: (data: {
+    processo: string;
+    numeroDoc: string;
+    tipoDoc: DocType;
+    resultado: "SEM OCORRÊNCIA" | "COM OCORRÊNCIA";
+    restricoes: string[];
+    observacao: string;
+  }) => void;
+}
+
+function TaxCalculator({ initialAudit, onApplyToForm }: TaxCalculatorProps) {
+  const [processoRef, setProcessoRef] = useState<string>(initialAudit?.processo || '23060.002891/2026-11');
+  const [numeroDocRef, setNumeroDocRef] = useState<string>(initialAudit?.numeroDoc || 'NF-e 000.004.882');
+  const [tipoDocRef, setTipoDocRef] = useState<DocType>(initialAudit?.tipoDoc || 'DD - Documento de Despesa');
+  const [grossValue, setGrossValue] = useState<number>(initialAudit?.valores?.valorBruto || 48000);
+  const [selectedRule, setSelectedRule] = useState<TaxRule>(TAX_RULES[2]); // Default: Demais Serviços (9,45%)
+  const [issRate, setIssRate] = useState<number>(5);
   const [issPrecoPublico, setIssPrecoPublico] = useState<number>(0);
   const [inssNormalRate, setInssNormalRate] = useState<number>(0);
   const [inssSpecial, setInssSpecial] = useState<number>(0);
-  const [inssSpecialRate, setInssSpecialRate] = useState<number>(2);
+  const [inssSpecialRate, setInssSpecialRate] = useState<number>(0);
   const [contaVinculada, setContaVinculada] = useState<number>(0);
+  
+  // Valor que veio retido/destacado no processo ou na NF pelo fornecedor/UG
+  const [valorRetencaoProcesso, setValorRetencaoProcesso] = useState<number>(
+    initialAudit?.valores?.retencoes !== undefined ? initialAudit.valores.retencoes : 2400
+  );
+  const [copied, setCopied] = useState<boolean>(false);
 
+  // Sincroniza se o processo do PDF mudar
+  useEffect(() => {
+    if (initialAudit) {
+      if (initialAudit.processo) setProcessoRef(initialAudit.processo);
+      if (initialAudit.numeroDoc) setNumeroDocRef(initialAudit.numeroDoc);
+      if (initialAudit.tipoDoc) setTipoDocRef(initialAudit.tipoDoc);
+      if (initialAudit.valores?.valorBruto) setGrossValue(initialAudit.valores.valorBruto);
+      if (initialAudit.valores?.retencoes !== undefined) setValorRetencaoProcesso(initialAudit.valores.retencoes);
+    }
+  }, [initialAudit]);
+
+  // Cálculos legais das retenções federais (IN RFB 1.234/2012)
   const irValue = Math.round((grossValue * selectedRule.ir)) / 100;
   const csllValue = Math.round((grossValue * selectedRule.csll)) / 100;
   const cofinsValue = Math.round((grossValue * selectedRule.cofins)) / 100;
   const pisValue = Math.round((grossValue * selectedRule.pis)) / 100;
   const federalTotal = Number((irValue + csllValue + cofinsValue + pisValue).toFixed(2));
   
+  // ISS e INSS
   const issValue = Number(((grossValue * issRate) / 100 + issPrecoPublico).toFixed(2));
   const inssNormalValue = Math.round((grossValue * inssNormalRate)) / 100;
 
-  const totalRetentions = Number((federalTotal + issValue + inssNormalValue + inssSpecial + contaVinculada).toFixed(2));
-  const netValue = Number((grossValue - totalRetentions).toFixed(2));
+  // Retenção Total Devida por Lei
+  const totalRetencoesDevidas = Number((federalTotal + issValue + inssNormalValue + inssSpecial + contaVinculada).toFixed(2));
+  const valorLiquidoDevido = Number((grossValue - totalRetencoesDevidas).toFixed(2));
+
+  // Confronto: Retenção Devida na Lei vs Retenção Informada no Processo
+  const diferencaRetencao = Number((totalRetencoesDevidas - valorRetencaoProcesso).toFixed(2));
+  const temDivergencia = Math.abs(diferencaRetencao) > 0.05;
+
+  // Cenários para testes rápidos e demonstração
+  const carregarCenarioDivergente = () => {
+    setProcessoRef('23060.002891/2026-11');
+    setNumeroDocRef('NF-e 000.004.882 / 2026');
+    setTipoDocRef('DD - Documento de Despesa');
+    setGrossValue(48000.00);
+    setSelectedRule(TAX_RULES[2]); // Demais Serviços (9,45%: IR 4,8% + CSLL 1% + COFINS 3% + PIS 0,65%)
+    setIssRate(5);
+    setIssPrecoPublico(0);
+    setInssNormalRate(0);
+    setInssSpecial(0);
+    setContaVinculada(0);
+    setValorRetencaoProcesso(2400.00); // Reteve apenas 5% de ISS (R$ 2.400) e omitiu R$ 4.536,00 de tributos federais da IN 1234/12!
+  };
+
+  const carregarCenarioRegular = () => {
+    setProcessoRef('23060.001955/2026-88');
+    setNumeroDocRef('NF-e 000.012.345');
+    setTipoDocRef('DD - Documento de Despesa');
+    setGrossValue(15400.00);
+    setSelectedRule(TAX_RULES[0]); // Bens de Consumo (5,85%)
+    setIssRate(0);
+    setIssPrecoPublico(0);
+    setInssNormalRate(0);
+    setInssSpecial(0);
+    setContaVinculada(0);
+    setValorRetencaoProcesso(900.90); // 15.400 * 5,85% = R$ 900,90 exatos!
+  };
+
+  // Parecer Técnico Rígido fundamentado na Lei e nas Normas
+  const parecerTecnicoRigido = temDivergencia
+    ? `PARECER TÉCNICO DE CONFRONTO TRIBUTÁRIO (IN RFB nº 1.234/2012 e Lei nº 4.320/1964):
+Examinada a documentação fiscal e a liquidação da despesa relativa ao Processo ${processoRef} (${numeroDocRef}), apurou-se que o valor bruto faturado é de R$ ${grossValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.
+Em estrita aplicação das normas tributárias da Instrução Normativa RFB nº 1.234/2012 (Art. 2º e Anexo I - DARF ${selectedRule.darf}) e do código tributário municipal, a retenção legal compulsória na fonte totaliza R$ ${totalRetencoesDevidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (Retenção Federal: R$ ${federalTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} [IR R$ ${irValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, CSLL R$ ${csllValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, COFINS R$ ${cofinsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, PIS R$ ${pisValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}] e ISSQN/Previdência: R$ ${(issValue + inssNormalValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
+Entretanto, o montante destacado e retido no processo/documento é de apenas R$ ${valorRetencaoProcesso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}, configurando DIVERGÊNCIA ${diferencaRetencao > 0 ? 'A MENOR (SUB-RETENÇÃO)' : 'A MAIOR'} NO VALOR DE R$ ${Math.abs(diferencaRetencao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.
+Conforme prescreve o Art. 63 da Lei nº 4.320/1964 e a Portaria IFS nº 1.633/2026 (Macrofunção SIAFI 020314), a liquidação e o pagamento da despesa pública dependem da exata dedução dos tributos legais exigíveis. A não retenção enseja responsabilização funcional solidária do conformista perante os órgãos de controle.
+CONCLUSÃO RIGOROSA: Registra-se a RESTRIÇÃO IMPEDITIVA "005 - Divergência de Valores/Cálculos Tributários ou Retenções (IN 1234/12)", classificando o ato como COM OCORRÊNCIA, restando suspenso o ateste de regularidade até a retificação da nota fiscal ou retenção complementar em folha de liquidação.`
+    : `PARECER DE CONFORMIDADE TRIBUTÁRIA E CONTÁBIL:
+Examinada a documentação fiscal e a liquidação do Processo ${processoRef} (${numeroDocRef}), confirma-se a conformidade integral dos cálculos. A retenção legalmente devida de R$ ${totalRetencoesDevidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (IN RFB nº 1.234/2012 - DARF ${selectedRule.darf}) corresponde com exatidão ao montante retido nos autos de R$ ${valorRetencaoProcesso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (Divergência: R$ 0,00). O procedimento atende ao Art. 63 da Lei nº 4.320/1964 e à Macrofunção SIAFI 020314. Resultado: SEM OCORRÊNCIA.`;
+
+  const copyParecer = () => {
+    navigator.clipboard.writeText(parecerTecnicoRigido);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleApplyToForm = () => {
+    if (onApplyToForm) {
+      onApplyToForm({
+        processo: processoRef,
+        numeroDoc: numeroDocRef,
+        tipoDoc: tipoDocRef,
+        resultado: temDivergencia ? 'COM OCORRÊNCIA' : 'SEM OCORRÊNCIA',
+        restricoes: temDivergencia ? ['005 - Divergência de Valores'] : [],
+        observacao: parecerTecnicoRigido
+      });
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-500">
-      {/* Left Column: Input */}
-      <div className="lg:col-span-5 space-y-6">
-        <div className="bg-[#141414] text-white p-6 rounded-3xl shadow-xl border border-white/10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-[#00FF00]/10 rounded-xl">
-              <Calculator className="w-5 h-5 text-[#00FF00]" />
-            </div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-[#00FF00]">Parâmetros de Cálculo</h3>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Top Header Card with Quick Scenario Buttons */}
+      <div className="bg-white dark:bg-[#16181A] p-6 rounded-3xl border border-black/5 dark:border-white/10 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-emerald-500/10 text-emerald-500 dark:bg-[#00FF00]/10 dark:text-[#00FF00] rounded-2xl">
+            <Calculator className="w-6 h-6" />
           </div>
+          <div>
+            <h2 className="text-lg font-bold text-black dark:text-white flex items-center gap-2">
+              Calculadora Tributária & Confronto Contábil Legal
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black text-emerald-400 dark:bg-white/10 dark:text-[#00FF00]">
+                IN RFB nº 1.234/2012
+              </span>
+            </h2>
+            <p className="text-xs text-black/50 dark:text-white/50">
+              Auditoria de retenções na fonte, confronto com o processo administrativo e aplicação rigorosa da Restrição 005.
+            </p>
+          </div>
+        </div>
 
-          <div className="space-y-5">
-            <div>
-              <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Valor Bruto da NF-e</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-bold text-xs">R$</span>
-                <input 
-                  type="number" 
-                  value={grossValue || ''}
-                  onChange={e => setGrossValue(Number(e.target.value))}
-                  placeholder="0,00"
-                  className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-lg font-bold focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50 transition-all"
+        {/* Action / Preset Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={carregarCenarioDivergente}
+            className="px-3 py-2 text-xs font-bold rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/20 flex items-center gap-1.5 transition-all"
+            title="Preencher com caso real de divergência na retenção de tributos federais"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Exemplo com Divergência (Restrição 005)
+          </button>
+          <button
+            type="button"
+            onClick={carregarCenarioRegular}
+            className="px-3 py-2 text-xs font-bold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 transition-all"
+            title="Preencher com cálculo regular sem divergência"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Exemplo Regular (Sem Ocorrência)
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Input Parameters and Process Reference */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Identificação do Processo em Confronto */}
+          <div className="bg-white dark:bg-[#16181A] p-6 rounded-3xl border border-black/5 dark:border-white/10 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-4 h-4 text-black/40 dark:text-white/40" />
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-black/60 dark:text-white/60">
+                1. Dados do Processo / Documento Auditado
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-black/50 dark:text-white/40 block mb-1">
+                  Processo SEI
+                </label>
+                <input
+                  type="text"
+                  value={processoRef}
+                  onChange={(e) => setProcessoRef(e.target.value)}
+                  placeholder="23060.000000/2026-00"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-[#00FF00]"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-black/50 dark:text-white/40 block mb-1">
+                  Nº Documento / NF-e
+                </label>
+                <input
+                  type="text"
+                  value={numeroDocRef}
+                  onChange={(e) => setNumeroDocRef(e.target.value)}
+                  placeholder="NF-e 1234 / NS 5678"
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-xl text-xs font-mono font-bold text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-[#00FF00]"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Natureza do Serviço (IN 1234/12)</label>
-              <select 
-                value={selectedRule.id}
-                onChange={e => {
-                  const rule = TAX_RULES.find(r => r.id === e.target.value);
-                  if (rule) setSelectedRule(rule);
-                }}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50 transition-all appearance-none"
-              >
-                {TAX_RULES.map(rule => (
-                  <option key={rule.id} value={rule.id} className="bg-[#141414] text-white">
-                    {rule.id} - {rule.label} ({rule.total}%)
-                  </option>
-                ))}
-              </select>
+            {/* Valor informado no processo para confronto */}
+            <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+              <label className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-300 block mb-1 tracking-widest flex items-center gap-1.5">
+                <Scale className="w-3.5 h-3.5" />
+                Valor da Retenção Destacada no Processo / NF (R$)
+              </label>
+              <div className="relative mt-2">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-600 dark:text-amber-400 font-bold text-xs">R$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={valorRetencaoProcesso || ''}
+                  onChange={(e) => setValorRetencaoProcesso(Number(e.target.value))}
+                  placeholder="0,00"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white dark:bg-[#16181A] border border-amber-500/30 rounded-xl text-base font-black text-amber-900 dark:text-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70 mt-1.5 leading-relaxed">
+                Informe o valor que a Unidade Gestora ou o fornecedor lançou nos autos. A calculadora confrontará com a exigência legal da IN RFB nº 1.234/2012.
+              </p>
+            </div>
+          </div>
+
+          {/* Parâmetros Contábeis Legais */}
+          <div className="bg-[#141414] text-white p-6 rounded-3xl shadow-xl border border-white/10 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#00FF00]/10 rounded-xl">
+                <Scale className="w-5 h-5 text-[#00FF00]" />
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-[#00FF00]">
+                2. Parâmetros Normativos (Lei & IN 1234/12)
+              </h3>
             </div>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">% ISSQN Retido</label>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">
+                  Valor Bruto da NF-e / Liquidação
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-bold text-xs">R$</span>
                   <input 
                     type="number" 
-                    value={issRate || ''}
-                    onChange={e => setIssRate(Number(e.target.value))}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Preço Público (DAM)</label>
-                  <input 
-                    type="number" 
-                    value={issPrecoPublico || ''}
-                    onChange={e => setIssPrecoPublico(Number(e.target.value))}
-                    placeholder="R$ 0,00"
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none"
+                    value={grossValue || ''}
+                    onChange={e => setGrossValue(Number(e.target.value))}
+                    placeholder="0,00"
+                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-lg font-bold focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50 transition-all"
                   />
                 </div>
               </div>
-              <div className="p-3 px-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
-                <span className="text-[10px] uppercase font-bold text-white/20 block tracking-widest">Total ISSQN</span>
-                <span className="text-sm font-bold">R$ {issValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
 
-            <div className="pt-4 border-t border-white/5 space-y-4">
-               <div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">
+                  Natureza do Serviço / Objeto (IN RFB nº 1.234/2012)
+                </label>
+                <select 
+                  value={selectedRule.id}
+                  onChange={e => {
+                    const rule = TAX_RULES.find(r => r.id === e.target.value);
+                    if (rule) setSelectedRule(rule);
+                  }}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50 transition-all appearance-none text-white"
+                >
+                  {TAX_RULES.map(rule => (
+                    <option key={rule.id} value={rule.id} className="bg-[#141414] text-white">
+                      {rule.id} - {rule.label} ({rule.total}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">% ISSQN Retido</label>
+                    <input 
+                      type="number" 
+                      value={issRate || ''}
+                      onChange={e => setIssRate(Number(e.target.value))}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Preço Público (DAM)</label>
+                    <input 
+                      type="number" 
+                      value={issPrecoPublico || ''}
+                      onChange={e => setIssPrecoPublico(Number(e.target.value))}
+                      placeholder="R$ 0,00"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="p-3 px-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between items-center">
+                  <span className="text-[10px] uppercase font-bold text-white/40 block tracking-widest">Total ISSQN Retido</span>
+                  <span className="text-sm font-bold text-white">R$ {issValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-white/5 space-y-4">
+                <div>
                   <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">INSS Normal (%)</label>
                   <div className="relative">
                     <input 
@@ -131,14 +343,15 @@ function TaxCalculator() {
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 font-bold text-xs">%</span>
                   </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">INSS Especial (%)</label>
                     <select 
                       value={inssSpecialRate}
                       onChange={e => setInssSpecialRate(Number(e.target.value))}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none text-white"
                     >
                       <option value={0}>NÃO</option>
                       <option value={1}>1%</option>
@@ -155,122 +368,282 @@ function TaxCalculator() {
                         setInssSpecial(Number(((base * inssSpecialRate) / 100).toFixed(2)));
                       }}
                       placeholder="BC Especial"
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-xs focus:outline-none text-white"
                     />
                   </div>
-               </div>
+                </div>
 
-               <div>
-                 <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Retenção Conta Vinculada (R$)</label>
-                 <input 
-                   type="number" 
-                   value={contaVinculada || ''}
-                   onChange={e => setContaVinculada(Number(e.target.value))}
-                   placeholder="Manual R$ 0,00"
-                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none"
-                 />
-               </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-white/40 block mb-2 tracking-widest">Retenção Conta Vinculada (R$)</label>
+                  <input 
+                    type="number" 
+                    value={contaVinculada || ''}
+                    onChange={e => setContaVinculada(Number(e.target.value))}
+                    placeholder="Manual R$ 0,00"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm focus:outline-none text-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SIAFI Reference */}
+          <div className="bg-white dark:bg-[#16181A] p-6 rounded-3xl border border-black/5 dark:border-white/10 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Hash className="w-4 h-4 text-black/40 dark:text-white/40" />
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-black/60 dark:text-white/60">
+                Classificação Contábil no SIAFI
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-gray-50 dark:bg-[#202326] rounded-2xl border border-black/5 dark:border-white/10">
+                <span className="text-[8px] uppercase font-black text-black/30 dark:text-white/30 block mb-1">DARF Único</span>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-[#00FF00] bg-black px-2 py-0.5 rounded">
+                  {selectedRule.darf}
+                </span>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-[#202326] rounded-2xl border border-black/5 dark:border-white/10">
+                <span className="text-[8px] uppercase font-black text-black/30 dark:text-white/30 block mb-1">Natureza DDF</span>
+                <span className="text-xs font-mono font-bold text-black dark:text-white">
+                  {selectedRule.ddf}
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* SIAFI Reference */}
-        <div className="bg-white dark:bg-[#16181A] p-6 rounded-3xl border border-black/5 dark:border-white/10 shadow-sm space-y-4 transition-colors">
-          <div className="flex items-center gap-2 mb-2">
-            <Hash className="w-4 h-4 text-black/40 dark:text-white/40" />
-            <h3 className="text-[11px] font-black uppercase tracking-widest text-black/60 dark:text-white/60">Referências SIAFI</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-gray-50 dark:bg-[#202326] rounded-2xl border border-black/5 dark:border-white/10">
-              <span className="text-[8px] uppercase font-black text-black/30 dark:text-white/30 block mb-1">DARF Único</span>
-              <span className="text-xs font-mono font-bold text-[#00FF00] bg-black px-2 py-0.5 rounded">{selectedRule.darf}</span>
-            </div>
-            <div className="p-3 bg-gray-50 dark:bg-[#202326] rounded-2xl border border-black/5 dark:border-white/10">
-              <span className="text-[8px] uppercase font-black text-black/30 dark:text-white/30 block mb-1">Natureza DDF</span>
-              <span className="text-xs font-mono font-bold text-black dark:text-white">{selectedRule.ddf}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right Column: Output / Results */}
-      <div className="lg:col-span-7 space-y-6">
-        <div className="bg-white dark:bg-[#16181A] p-8 rounded-[40px] shadow-2xl border border-black/5 dark:border-white/10 relative overflow-hidden transition-colors">
-          {/* Subtle Grid Background */}
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06] pointer-events-none" style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-          
-          <div className="relative z-10 space-y-8">
-            <div className="flex justify-between items-start">
+        {/* Right Column: Output / Memória de Cálculo + Seção Rígida de Confronto */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Card Principal: Memória de Cálculo Conforme a Lei */}
+          <div className="bg-white dark:bg-[#16181A] p-6 md:p-8 rounded-[40px] shadow-xl border border-black/5 dark:border-white/10 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-black/5 dark:border-white/10">
               <div>
-                <h2 className="text-[10px] uppercase font-black tracking-[0.3em] text-black/20 dark:text-white/30 mb-2">Memória de Cálculo</h2>
-                <p className="text-lg font-serif italic text-black/60 dark:text-white/70">{selectedRule.label}</p>
+                <h2 className="text-[10px] uppercase font-black tracking-[0.3em] text-black/30 dark:text-white/30 mb-1">
+                  Memória de Cálculo Legal
+                </h2>
+                <p className="text-lg font-serif italic text-black/70 dark:text-white/80">
+                  {selectedRule.label}
+                </p>
               </div>
-              <div className="text-right">
-                 <span className="text-[10px] uppercase font-black tracking-widest text-[#00FF00] bg-black px-3 py-1 rounded-full">Retenção Total</span>
-                 <div className="text-3xl font-black mt-2 text-black dark:text-white">R$ {totalRetentions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 py-8 border-y border-black/5 dark:border-white/10">
-              <div className="space-y-4">
-                 <h4 className="text-[10px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest border-l-2 border-[#00FF00] pl-2">Detalhamento Federal</h4>
-                 <div className="space-y-3">
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">IR ({selectedRule.ir}%)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {irValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">CSLL ({selectedRule.csll}%)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {csllValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">COFINS ({selectedRule.cofins}%)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {cofinsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm border-b border-dashed border-black/10 dark:border-white/10 pb-2">
-                     <span className="text-black/40 dark:text-white/40">PIS/PASEP ({selectedRule.pis}%)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {pisValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-xs font-black uppercase text-[#00FF00] bg-black p-2 rounded-lg">
-                     <span>Total Federal</span>
-                     <span>R$ {federalTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                 </div>
-              </div>
-
-              <div className="space-y-4">
-                 <h4 className="text-[10px] uppercase font-black text-black/40 dark:text-white/40 tracking-widest border-l-2 border-[#00FF00] pl-2">Previdenciário e Municipal</h4>
-                 <div className="space-y-3">
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">INSS Normal ({inssNormalRate}%)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {inssNormalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">INSS Especial</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {inssSpecial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm">
-                     <span className="text-black/40 dark:text-white/40">Conta Vinculada</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {contaVinculada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="flex justify-between text-sm border-b border-dashed border-black/10 dark:border-white/10 pb-2">
-                     <span className="text-black/40 dark:text-white/40">ISSQN ({issRate}% + DAM)</span>
-                     <span className="font-mono font-bold text-black dark:text-white">R$ {issValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                   </div>
-                   <div className="bg-gray-50 dark:bg-[#202326] p-4 rounded-3xl border border-black/5 dark:border-white/10">
-                      <span className="text-[9px] uppercase font-black text-black/40 dark:text-white/30 block mb-1">Valor Líquido a Pagar</span>
-                      <div className="text-2xl font-black text-black dark:text-white">R$ {netValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                   </div>
-                 </div>
+              <div className="text-left sm:text-right">
+                <span className="text-[10px] uppercase font-black tracking-widest text-[#00FF00] bg-black px-3 py-1 rounded-full">
+                  Retenção Legal Devida
+                </span>
+                <div className="text-3xl font-black mt-2 text-black dark:text-white">
+                  R$ {totalRetencoesDevidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
               </div>
             </div>
 
+            {/* Detalhamento das parcelas federais e municipais */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-4 border-b border-black/5 dark:border-white/10">
+              <div className="space-y-3">
+                <h4 className="text-[10px] uppercase font-black text-black/50 dark:text-white/40 tracking-widest border-l-2 border-[#00FF00] pl-2">
+                  Detalhamento Federal (IN 1234/12)
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">IRPJ ({selectedRule.ir}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {irValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">CSLL ({selectedRule.csll}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {csllValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">COFINS ({selectedRule.cofins}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {cofinsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b border-dashed border-black/10 dark:border-white/10 pb-2">
+                    <span className="text-black/50 dark:text-white/40">PIS/PASEP ({selectedRule.pis}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {pisValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs font-black uppercase text-[#00FF00] bg-black p-2 rounded-lg">
+                    <span>Total Federal Retido</span>
+                    <span>R$ {federalTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-[10px] uppercase font-black text-black/50 dark:text-white/40 tracking-widest border-l-2 border-[#00FF00] pl-2">
+                  Previdenciário e Municipal
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">INSS Normal ({inssNormalRate}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {inssNormalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">INSS Especial</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {inssSpecial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/50 dark:text-white/40">Conta Vinculada</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {contaVinculada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-b border-dashed border-black/10 dark:border-white/10 pb-2">
+                    <span className="text-black/50 dark:text-white/40">ISSQN ({issRate}%)</span>
+                    <span className="font-mono font-bold text-black dark:text-white">
+                      R$ {issValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-[#202326] p-3 rounded-2xl border border-black/5 dark:border-white/10 flex justify-between items-center">
+                    <span className="text-[10px] uppercase font-black text-black/50 dark:text-white/40">Líquido a Pagar</span>
+                    <span className="text-base font-black text-black dark:text-white">
+                      R$ {valorLiquidoDevido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SEÇÃO CRÍTICA DE CONFRONTO E RIGOR NORMATIVO */}
+            <div className={`p-6 rounded-3xl border transition-all ${
+              temDivergencia 
+                ? 'bg-red-500/5 dark:bg-red-500/10 border-red-500/30' 
+                : 'bg-emerald-500/5 dark:bg-emerald-500/10 border-emerald-500/30'
+            }`}>
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <div className="flex items-center gap-2.5">
+                  {temDivergencia ? (
+                    <div className="p-2 bg-red-500 text-white rounded-xl animate-pulse">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                  ) : (
+                    <div className="p-2 bg-emerald-500 text-white rounded-xl">
+                      <Check className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[10px] uppercase font-black tracking-widest text-black/40 dark:text-white/40 block">
+                      Resultado do Confronto Contábil
+                    </span>
+                    <h4 className={`text-base font-black ${temDivergencia ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                      {temDivergencia 
+                        ? 'COM OCORRÊNCIA — RESTRIÇÃO 005 IMPEDITIVA' 
+                        : 'SEM OCORRÊNCIA — CÁLCULOS REGULARES'}
+                    </h4>
+                  </div>
+                </div>
+
+                <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${
+                  temDivergencia 
+                    ? 'bg-red-600 text-white shadow-sm' 
+                    : 'bg-emerald-600 text-white'
+                }`}>
+                  {temDivergencia ? 'Restrição 005 Aplicável' : 'Conforme a Lei'}
+                </span>
+              </div>
+
+              {/* Matriz comparativa de valores */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-white/60 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5 mb-4">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-black/50 dark:text-white/40 block mb-0.5">
+                    Retenção Legal Devida
+                  </span>
+                  <span className="text-base font-black text-black dark:text-white font-mono">
+                    R$ {totalRetencoesDevidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-black/50 dark:text-white/40 block mb-0.5">
+                    Retenção no Processo/NF
+                  </span>
+                  <span className="text-base font-black text-black dark:text-white font-mono">
+                    R$ {valorRetencaoProcesso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-black/50 dark:text-white/40 block mb-0.5">
+                    Divergência Apurada
+                  </span>
+                  <span className={`text-base font-black font-mono ${
+                    temDivergencia ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    {diferencaRetencao > 0 ? '+' : ''}R$ {diferencaRetencao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Texto do parecer e fundamentação */}
+              <div className="p-4 bg-white dark:bg-[#111214] rounded-2xl border border-black/10 dark:border-white/10 space-y-2 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-black text-black/60 dark:text-white/60 tracking-wider">
+                    Parecer Técnico Normativo do Auditor
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copyParecer}
+                    className="text-xs text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white flex items-center gap-1 font-bold"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copiar Parecer</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-black/70 dark:text-white/70 whitespace-pre-line font-mono leading-relaxed bg-black/5 dark:bg-white/5 p-3 rounded-xl">
+                  {parecerTecnicoRigido}
+                </p>
+              </div>
+
+              {/* Botões de Ação Direta no Sistema */}
+              <div className="flex flex-wrap gap-3">
+                {temDivergencia ? (
+                  <button
+                    type="button"
+                    onClick={handleApplyToForm}
+                    className="flex-1 min-w-[240px] px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Aplicar Restrição 005 no Formulário e Iniciar Registro</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleApplyToForm}
+                    className="flex-1 min-w-[240px] px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Transferir Regularidade para o Formulário (Sem Ocorrência)</span>
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Citação normativa oficial */}
             <div className="flex items-start gap-4 p-4 bg-[#00FF00]/5 dark:bg-[#00FF00]/10 rounded-3xl border border-[#00FF00]/10 dark:border-[#00FF00]/20">
-              <AlertCircle className="w-5 h-5 text-[#00CC00] flex-shrink-0 mt-1" />
+              <AlertCircle className="w-5 h-5 text-[#00CC00] flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-[11px] font-bold text-black/60 dark:text-white/70 uppercase tracking-widest">Atenção Auditor</p>
-                <p className="text-xs text-black/50 dark:text-white/50 leading-relaxed italic">
-                  Cálculos atualizados em conformidade com o <b>Manual de Procedimentos de Conformidade de Registro de Gestão 2026</b> (Portaria IFS nº 1.633/2026) e a <b>IN RFB nº 1.234/2012</b>.
+                <p className="text-[11px] font-bold text-black/70 dark:text-white/80 uppercase tracking-widest">
+                  Fundamentação Legal Vinculante
+                </p>
+                <p className="text-xs text-black/60 dark:text-white/60 leading-relaxed">
+                  Conforme a <b>IN RFB nº 1.234/2012</b>, o <b>Art. 63 da Lei nº 4.320/1964</b> e a <b>Portaria IFS nº 1.633/2026</b> (Macrofunção SIAFI 020314), havendo divergência tributária superior a centavos na liquidação da despesa, é dever funcional apor a <b>Restrição 005</b> com resultado <b>COM OCORRÊNCIA</b>.
                 </p>
               </div>
             </div>
@@ -283,6 +656,7 @@ function TaxCalculator() {
 
 export default function App() {
   const [view, setView] = useState<'form' | 'pdf-analyzer' | 'history' | 'calculator'>('form');
+  const [currentAudit, setCurrentAudit] = useState<ProcessAuditResult | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
     return (saved === 'dark' || saved === 'light') ? saved : 'light';
@@ -815,6 +1189,8 @@ export default function App() {
         ) : view === 'pdf-analyzer' ? (
           <ProcessPdfAnalyzer
             conformistaPadrao={conformista}
+            onOpenCalculator={() => setView('calculator')}
+            onAuditChange={(audit) => setCurrentAudit(audit)}
             onImportToForm={(data) => {
               setProcesso(data.processo);
               setNumeroDoc(data.numeroDoc);
@@ -840,7 +1216,18 @@ export default function App() {
             }}
           />
         ) : view === 'calculator' ? (
-          <TaxCalculator />
+          <TaxCalculator 
+            initialAudit={currentAudit}
+            onApplyToForm={(data) => {
+              setProcesso(data.processo);
+              setNumeroDoc(data.numeroDoc);
+              if (data.tipoDoc) setTipoDoc(data.tipoDoc);
+              setResultado(data.resultado);
+              setSelectedRestricoes(data.restricoes);
+              setObservacao(data.observacao);
+              setView('form');
+            }}
+          />
         ) : (
           <div className="space-y-8">
             {/* Seção de Estatísticas com Recharts */}

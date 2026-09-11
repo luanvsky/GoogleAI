@@ -358,3 +358,94 @@ export const DEMO_TAXAS_CREA: ProcessAuditResult = {
   sugestaoConformista: "Registrar no SIAFI a Conformidade dos Registros de Gestão SEM OCORRÊNCIA e certificar a regularidade no SEI.",
   confiancaAnalise: "Motor Especialista Normativo IFS (Auditado)"
 };
+
+export const DEMO_DIVERGENCIA_CALCULO: ProcessAuditResult = {
+  processo: "23060.002891/2026-15",
+  numeroDoc: "DANFE NF-e nº 2.890",
+  tipoDoc: "DD - Documento de Despesa",
+  naturezaProcesso: "AQUISIÇÃO_OU_SERVIÇO",
+  favorecido: {
+    nome: "INFRAESTRUTURA E GESTÃO DE DADOS TECNOLOGIA S/A",
+    cnpjCpf: "21.904.382/0001-77"
+  },
+  valores: {
+    valorBruto: 50000.00,
+    retencoes: 600.00, // Fornecedor destacou apenas 1.2% (R$ 600,00) em vez de 9.45% (R$ 4.725,00)
+    valorLiquido: 49400.00,
+    detalheRetencoes: "ALERTA RIGOROSO: Destacado apenas R$ 600,00 (IR 1,2%) na NF. Conforme IN RFB nº 1.234/2012 (Código 17099 - Demais Serviços), a alíquota correta é 9,45% (IR 4,8% + CSLL 1,0% + COFINS 3,0% + PIS 0,65%), totalizando R$ 4.725,00. Divergência a menor de R$ 4.125,00."
+  },
+  resultado: "COM OCORRÊNCIA",
+  restricoesDetectadas: [
+    {
+      codigo: "005 - Divergência de Valores/Cálculos Tributários ou Retenções (IN 1234/12)",
+      titulo: "Retenção Tributária a Menor na Nota Fiscal (Divergência de R$ 4.125,00)",
+      descricao: "Na NF-e nº 2.890, o prestador destacou indevidamente retenção de apenas R$ 600,00 (alíquota 1,2%), omitindo a retenção integral compulsória exigida de órgãos públicos federais de 9,45% (R$ 4.725,00: IRRF R$ 2.400,00, CSLL R$ 500,00, COFINS R$ 1.500,00 e PIS/PASEP R$ 325,00). Violação expressa ao Art. 2º da IN RFB nº 1.234/2012 e ao Art. 63 da Lei nº 4.320/1964. O pagamento com retenção a menor acarreta responsabilidade funcional do gestor.",
+      severidade: "Impeditiva",
+      trechoEvidencia: "Folha 14: Campo Retenções Federais da NF-e nº 2.890 indica R$ 600,00. Cálculo exato da IN 1234/12: R$ 4.725,00. Diferença apurada: R$ 4.125,00.",
+      acaoRecomendada: "Diligenciar urgentemente a empresa contratada para emissão de Carta de Correção Eletrônica / NF retificadora ou promover a retenção integral de 9,45% diretamente na Nota de Lançamento de Sistema (NS) e Ordem Bancária no SIAFI antes de qualquer transferência financeira."
+    }
+  ],
+  checklistAvaliado: [
+    { item: "Nota de Empenho prévia vinculada e com saldo suficiente", status: "CONFORME", observacao: "Empenho 2026NE000512 regular" },
+    { item: "Ateste formal de execução do serviço ou recebimento do material", status: "CONFORME", observacao: "Termo de Recebimento Provisório e Definitivo atestado pelo fiscal do contrato" },
+    { item: "Cálculo de retenções federais nos termos da IN RFB 1234/2012", status: "NÃO CONFORME", observacao: "Divergência grave: Retenção destacada de R$ 600,00 diverge da exigência legal de R$ 4.725,00 (alíquota 9,45%)" },
+    { item: "Certidões de regularidade fiscal e trabalhista vigentes", status: "CONFORME", observacao: "SICAF nível I a VI válido" },
+    { item: "Despacho autorizativo do Ordenador de Despesa", status: "CONFORME", observacao: "Autorização de pagamento assinada" }
+  ],
+  documentosIdentificados: [
+    "Nota de Empenho 2026NE000512 (Fl. 05)",
+    "DANFE NF-e nº 2.890 (Fl. 14)",
+    "Termo de Ateste da Equipe de Fiscalização (Fl. 19)",
+    "Relatório Mensal de Execução de TI (Fl. 22)",
+    "Certidão SICAF Integral (Fl. 27)",
+    "Nota de Lançamento de Sistema preliminar (Fl. 31)"
+  ],
+  confrontoCalculadora: {
+    valorBrutoProcesso: 50000.00,
+    retencaoProcesso: 600.00,
+    valorLiquidoProcesso: 49400.00,
+    regraId: "17099",
+    regraLabel: "Demais Serviços em Geral",
+    aliquotaTotal: 9.45,
+    irCalculado: 2400.00,
+    csllCalculado: 500.00,
+    cofinsCalculado: 1500.00,
+    pisCalculado: 325.00,
+    issCalculado: 0.00,
+    inssCalculado: 0.00,
+    retencoesLegaisTotais: 4725.00,
+    valorLiquidoCalculado: 45275.00,
+    diferencaRetencao: 4125.00,
+    diferencaLiquido: -4125.00,
+    statusConfronto: "DIVERGENCIA_DETECTADA",
+    justificativaNormativa: "Divergência Tributária Grave Identificada: Pela IN RFB nº 1.234/2012, o montante legal devido para serviços de TI é de R$ 4.725,00 (alíquota ampla de 9,45%). Na NF-e do processo foi retido apenas R$ 600,00 (1,2%), gerando uma retenção a menor de R$ 4.125,00 aos cofres federais.",
+    restricaoAplicada: "005 - Divergência de Valores/Cálculos Tributários ou Retenções (IN 1234/12)"
+  },
+  evidenciasEncontradas: [
+    {
+      campo: "Valor Total da Fatura de Serviços de TI",
+      valorOuConteudo: "R$ 50.000,00",
+      documentoOrigem: "DANFE NF-e nº 2.890 (Fl. 14)",
+      categoria: "Valores",
+      impactoNoParecer: "Base de cálculo imponível sujeita à retenção integral da IN RFB nº 1.234/2012."
+    },
+    {
+      campo: "Destaque de Tributos na Nota Fiscal",
+      valorOuConteudo: "R$ 600,00 (Apenas 1,2% de IR, sem CSLL, COFINS ou PIS)",
+      documentoOrigem: "NF-e nº 2.890 (Quadro de Retenções Federais, Fl. 14)",
+      categoria: "Valores",
+      impactoNoParecer: "Evidência material irrefutável do erro tributário do prestador em desacordo com a IN 1.234/2012."
+    },
+    {
+      campo: "Retenção Legal Exigida pelos Cofres Públicos",
+      valorOuConteudo: "R$ 4.725,00 (Alíquota 9,45%: IR 4,8%, CSLL 1,0%, COFINS 3,0%, PIS 0,65%)",
+      documentoOrigem: "Confronto da Calculadora Contábil e IN RFB 1.234/2012",
+      categoria: "Valores",
+      impactoNoParecer: "Motivação imperiosa da Restrição 005 e vedação de emissão de Conformidade Regular sem o ajuste tributário."
+    }
+  ],
+  parecerConclusivo: "Examinada a documentação que instrui o presente processo, identifica-se DIVERGÊNCIA TRIBUTÁRIA GRAVE: o fornecedor emitiu a NF-e nº 2.890 com retenção federal destacada a menor (apenas R$ 600,00 correspondente a 1,2% de IRRF), quando a legislação federal (IN RFB nº 1.234/2012, Código 17099) exige a retenção integral de 9,45% (R$ 4.725,00) abrangendo IR, CSLL, COFINS e PIS. Nos termos da Macrofunção SIAFI 020314, da Lei nº 4.320/64 (Art. 63) e da Portaria IFS nº 1.633/2026, impõe-se a aplicação rigorosa da RESTRIÇÃO 005 - Divergência de Valores/Cálculos Tributários ou Retenções (IN 1234/12), com classificação de conformidade COM OCORRÊNCIA até que a liquidação no SIAFI efetue a retenção compulsória dos R$ 4.125,00 pendentes.",
+  sugestaoConformista: "Registrar no SIAFI a Conformidade Diária COM OCORRÊNCIA (Restrição 005 - Impeditiva) e reter os tributos devidos via Nota de Sistema.",
+  confiancaAnalise: "Motor Especialista Normativo IFS (Auditado Rigoroso)"
+};
+

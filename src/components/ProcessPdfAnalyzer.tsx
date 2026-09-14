@@ -32,7 +32,7 @@ import { SiafiDocumentsTable } from './SiafiDocumentsTable';
 import { ProcessDocumentsTable } from './ProcessDocumentsTable';
 import { ParecerTecnicoView } from './ParecerTecnicoView';
 import { ProcessEvidenceTable } from './ProcessEvidenceTable';
-import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO } from '../data/demoScenarios';
+import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO, DEMO_MULHERES_MIL_JULHO2026 } from '../data/demoScenarios';
 import { ConfrontoCalculadoraTributaria } from './ConfrontoCalculadoraTributaria';
 
 interface ProcessPdfAnalyzerProps {
@@ -67,7 +67,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<'visao_geral' | 'calculadora_confronto' | 'evidencias_encontradas' | 'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'checklist'>('visao_geral');
+  const [activeDetailTab, setActiveDetailTab] = useState<'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'evidencias_encontradas' | 'calculadora_confronto' | 'visao_geral'>('documentos_siafi');
   const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
@@ -196,6 +196,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
       if (data?.audit) {
         setAuditResult(data.audit);
         setIsContingencyMode(!!data.isFallback);
+        setActiveDetailTab('documentos_siafi');
       } else {
         throw new Error('A resposta da auditoria não veio no formato esperado.');
       }
@@ -209,7 +210,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   };
 
   // Carregar Exemplo Demonstrativo para testes rápidos
-  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea' | 'divergencia_calculo') => {
+  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea' | 'divergencia_calculo' | 'mulheres_mil') => {
     setErrorMessage('');
     setIsSaved(false);
     if (scenario === 'divergencia_calculo') {
@@ -219,8 +220,12 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
       onAuditChange?.(DEMO_DIVERGENCIA_CALCULO);
       return;
     }
-    setActiveDetailTab('visao_geral');
-    if (scenario === 'taxas_crea') {
+    setActiveDetailTab('documentos_siafi');
+    if (scenario === 'mulheres_mil') {
+      setFile({ name: 'Processo_SEI_23060.002402_2026_87_Mulheres_Mil_Folha_Julho2026.pdf', size: 3418500 } as File);
+      setAuditResult(DEMO_MULHERES_MIL_JULHO2026);
+      onAuditChange?.(DEMO_MULHERES_MIL_JULHO2026);
+    } else if (scenario === 'taxas_crea') {
       setFile({ name: 'Processo_SEI_23060.001366_2026_Taxas_CREA_SE_ARTs.pdf', size: 2150400 } as File);
       setAuditResult(DEMO_TAXAS_CREA);
       onAuditChange?.(DEMO_TAXAS_CREA);
@@ -411,6 +416,47 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           'Consulta SICAF / Certidões Tributárias (Fl. 30 a 34)',
           'Despacho Autorizativo de Pagamento (Fl. 36)'
         ],
+        documentosSiafiAnalisados: [
+          {
+            tipo: "NE",
+            numero: "2026NE000412",
+            data: "10/01/2026",
+            valor: 90400.00,
+            favorecido: "04.812.940/0001-32 - LIMPADORA SERGIPANA LTDA",
+            eventos: ["401201 - Empenho de Despesa"],
+            classificacaoOuContas: "33903701 - Apoio Administrativo e Limpeza",
+            descricaoOuObservacao: "ATENDER DESPESA COM PRESTACAO DE SERVICOS CONTINUADOS DE LIMPEZA E CONSERVACAO PREDIAL.",
+            signatarios: ["Ordenador de Despesas IFS"],
+            status: "REGULAR",
+            parecerTecnico: "Nota de Empenho ordinária emitida previamente com saldo suficiente."
+          },
+          {
+            tipo: "NS",
+            numero: "2026NS004182",
+            data: "10/03/2026",
+            valor: 40928.60,
+            favorecido: "04.812.940/0001-32 - LIMPADORA SERGIPANA LTDA",
+            eventos: ["401002 - Liquidacao da Despesa"],
+            classificacaoOuContas: "33903701 / 214121401",
+            descricaoOuObservacao: "LIQUIDACAO DE NF-E 10.458 DE SERVICOS DE LIMPEZA DO MES DE FEVEREIRO/2026. RESTRIÇÃO: PENDENCIA DE ATESTE FORMAL E CND FGTS VENCIDA.",
+            signatarios: ["Setor Contabil IFS"],
+            status: "PENDENTE",
+            parecerTecnico: "Liquidação pendente de ateste formal do fiscal na NF-e e regularização da certidão do FGTS."
+          }
+        ],
+        analiseDescricaoContabil: {
+          textoObservacao: "LIQUIDACAO DE NF-E 10.458 DE SERVICOS DE LIMPEZA DO MES DE FEVEREIRO/2026, CONTRATO 04/2025, IFS CAMPUS ARACAJU.",
+          qualidadeRedacao: "Regular com Ressalvas",
+          avaliacaoCriteriosa: "A observação contábil identifica o mês de referência e contrato, porém omite a advertência da pendência documental encontrada no ateste físico.",
+          elementosIdentificados: [
+            "Identificação da prestação de serviços de limpeza",
+            "Referência ao mês de fevereiro/2026",
+            "Identificação do Campus Aracaju"
+          ],
+          apontamentosOuGralhas: [
+            "Necessário registrar no SIAFI a ocorrência impeditiva da regularidade até juntada do ateste assinado e certidão CRF renovada."
+          ]
+        },
         evidenciasEncontradas: [
           {
             campo: "Valor Bruto Faturado na NF-e",
@@ -491,6 +537,59 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           'Comprovante de Regularidade no SICAF (Fl. 14)',
           'Despacho de Liquidação da Despesa (Fl. 16)'
         ],
+        documentosSiafiAnalisados: [
+          {
+            tipo: "NE",
+            numero: "2026NE000188",
+            data: "15/02/2026",
+            valor: 18750.00,
+            favorecido: "02.441.800/0001-98 - EDITORA E DISTRIBUIDORA DE LIVROS EDUCATIVOS DO BRASIL S/A",
+            eventos: ["401201 - Empenho de Despesa"],
+            classificacaoOuContas: "33903014 - Material Didático",
+            descricaoOuObservacao: "AQUISICAO DE LIVROS DIDATICOS PARA O ACERVO DO IFS CONFORME PREGAO 12/2025 E PROCESSO SEI 23060.000980/2026-12.",
+            signatarios: ["Ordenador de Despesas IFS"],
+            status: "REGULAR",
+            parecerTecnico: "Nota de Empenho ordinária emitida previamente com saldo suficiente e classificação orçamentária correta."
+          },
+          {
+            tipo: "NS",
+            numero: "2026NS002140",
+            data: "14/03/2026",
+            valor: 17653.12,
+            favorecido: "02.441.800/0001-98 - EDITORA E DISTRIBUIDORA DE LIVROS EDUCATIVOS DO BRASIL S/A",
+            eventos: ["401002 - Liquidacao da Despesa", "521288 - Reconhecimento de Passivo"],
+            classificacaoOuContas: "33903014 / 214121401",
+            descricaoOuObservacao: "LIQUIDACAO REF DANFE 4.190 LIVROS DIDATICOS, COM TERMO DE RECEBIMENTO DEFINITIVO E RETENCAO DE 5,85% (IN RFB 1.234/12).",
+            signatarios: ["Setor Contabil IFS"],
+            status: "REGULAR",
+            parecerTecnico: "Liquidação formal com ateste e destaque das retenções na fonte."
+          },
+          {
+            tipo: "OB",
+            numero: "2026OB001920",
+            data: "18/03/2026",
+            valor: 17653.12,
+            favorecido: "BANCO DO BRASIL S.A. / EDITORA E DISTRIBUIDORA DE LIVROS",
+            eventos: ["401003 - Pagamento de Despesa", "561602 - Saida Financeira"],
+            classificacaoOuContas: "Conta Unica do Tesouro Nacional",
+            descricaoOuObservacao: "ORDEM BANCARIA DE PAGAMENTO CONFORME LIQUIDACAO 2026NS002140 E PROCESSO SEI 23060.000980/2026-12.",
+            signatarios: ["Ordenador de Despesas", "Gestor Financeiro"],
+            status: "REGULAR",
+            parecerTecnico: "Ordem Bancária com quitação regular e comprovante bancário acostado aos autos."
+          }
+        ],
+        analiseDescricaoContabil: {
+          textoObservacao: "LIQUIDACAO REF DANFE 4.190 LIVROS DIDATICOS, COM TERMO DE RECEBIMENTO DEFINITIVO E RETENCAO DE 5,85% (IN RFB 1.234/12), PROCESSO SEI 23060.000980/2026-12.",
+          qualidadeRedacao: "Excelente",
+          avaliacaoCriteriosa: "A observação contábil cumpre com clareza os requisitos da Macrofunção SIAFI 020314, informando o documento hábil, termo de recebimento definitivo, base de retenção e processo administrativo correspondente.",
+          elementosIdentificados: [
+            "Identificação do documento hábil (DANFE 4.190)",
+            "Menção expressa ao Termo de Recebimento Definitivo",
+            "Destaque do percentual de retenção (5,85%) conforme IN RFB 1.234/12",
+            "Processo SEI vinculado"
+          ],
+          apontamentosOuGralhas: []
+        },
         evidenciasEncontradas: [
           {
             campo: "Valor Total da Fatura / Livros Didáticos",
@@ -625,69 +724,55 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Banner / Normative Framing */}
-      <div className="bg-[#141414] text-white p-6 rounded-2xl shadow-xl border border-white/10 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+      {/* Top Banner / Normative Framing - Despoluído e Focado */}
+      <div className="bg-[#141414] text-white p-5 sm:p-6 rounded-2xl shadow-lg border border-white/10 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className="px-2.5 py-0.5 bg-[#00FF00]/20 text-[#00FF00] border border-[#00FF00]/30 rounded-full text-[9px] font-black tracking-widest uppercase">
-                Auditoria Automatizada • SIAFI 020314
+                Conformidade SIAFI • Macrofunção 020314
               </span>
               <span className="text-[10px] text-white/50">Portaria IFS nº 1.633/2026</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2.5">
-              <Sparkles className="w-6 h-6 text-[#00FF00]" />
-              Análise de Processos em PDF com Detecção de Restrições
+            <h2 className="text-lg sm:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2.5">
+              <Landmark className="w-5 h-5 sm:w-6 sm:h-6 text-[#00FF00]" />
+              Auditoria de Processos e Documentos SIAFI
             </h2>
-            <p className="text-xs text-white/70 max-w-3xl mt-1 leading-relaxed">
-              Anexe o processo completo em formato PDF (SEI / Empenho / Nota Fiscal / Comprovantes). A IA fará a varredura das fontes normativas (Macrofunção 020314, IN RFB 1.234/2012 e Lei 4.320/64) e sinalizará imediatamente se há ou não restrições para registro.
+            <p className="text-xs text-white/70 max-w-2xl mt-1 leading-relaxed">
+              Auditoria contábil focada em atos e documentos do SIAFI (NE, NS, NP, OB, DARF). Navegue entre os campos por cliques diretos, com visual despoluído e sem necessidade de rolagem excessiva.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
-            <button
-              type="button"
-              onClick={() => loadDemoCase('divergencia_calculo')}
-              className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
-              title="Testar Rigor Normativo: Divergência de Cálculo Tributário e Retenção a Menor na NF (Restrição 005)"
-            >
-              <Calculator className="w-3.5 h-3.5 text-rose-400" /> Exemplo Divergência de Cálculo (IN 1234/12)
-            </button>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => loadDemoCase('taxas_crea')}
-              className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
-              title="Taxas do CREA-SE / ARTs (Dispensa de NF, Boletos BB PIX e Exame dos Documentos SIAFI)"
+              className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/40 text-blue-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              title="Carregar exemplo de Taxas CREA-SE"
             >
-              <Landmark className="w-3.5 h-3.5 text-blue-400" /> Exemplo Taxas CREA-SE
+              <Landmark className="w-3.5 h-3.5 text-blue-400" /> CREA-SE
             </button>
             <button
               type="button"
-              onClick={() => loadDemoCase('auxilio_estudantil')}
-              className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5 shadow-sm"
-              title="Auxílio Estudantil MNR (Dispensa Legal de NF e Análise Contábil)"
+              onClick={() => loadDemoCase('mulheres_mil')}
+              className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/40 text-purple-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              title="Carregar exemplo Mulheres Mil"
             >
-              <GraduationCap className="w-3.5 h-3.5 text-emerald-400" /> Exemplo Auxílio Estudantil
-            </button>
-            <button
-              type="button"
-              onClick={() => loadDemoCase('com_restricao')}
-              className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" /> Exemplo com Restrição
+              <Briefcase className="w-3.5 h-3.5 text-purple-400" /> Mulheres Mil
             </button>
             <button
               type="button"
               onClick={() => loadDemoCase('sem_restricao')}
-              className="px-3 py-1.5 bg-[#00FF00]/10 hover:bg-[#00FF00]/20 border border-[#00FF00]/30 text-[#00FF00] rounded-xl text-[10px] font-bold tracking-wide transition-all flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-[#00FF00]/10 hover:bg-[#00FF00]/20 border border-[#00FF00]/30 text-[#00FF00] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              title="Carregar processo regular"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Exemplo sem Restrição
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#00FF00]" /> Sem Ocorrência
             </button>
           </div>
         </div>
 
-        {/* Subtle decorative background blur */}
-        <div className="absolute right-0 top-0 w-96 h-96 bg-[#00FF00]/5 rounded-full blur-3xl pointer-events-none" />
+        {/* Subtle decorative background glow */}
+        <div className="absolute right-0 top-0 w-80 h-80 bg-[#00FF00]/5 rounded-full blur-3xl pointer-events-none" />
       </div>
 
       {/* Upload and Configuration Grid */}
@@ -847,16 +932,24 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
             {/* Quick Demo Preloads (available always) */}
             <div className="p-3 bg-gray-50 dark:bg-[#1a1c1e] rounded-xl border border-black/5 dark:border-white/10 space-y-2">
               <span className="text-[9px] uppercase font-black text-black/50 dark:text-white/50 tracking-widest block">
-                Exemplos de Simulação Normativa:
+                Processos Prontos para Simulação:
               </span>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => loadDemoCase('taxas_crea')}
                   className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-blue-500 border border-black/10 dark:border-white/10 text-blue-700 dark:text-blue-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
                   title="Taxas CREA-SE (ARTs / Boletos BB / Parecer e Docs SIAFI)"
                 >
-                  <Landmark className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" /> Taxas CREA-SE
+                  <Landmark className="w-3 h-3 shrink-0 text-blue-600 dark:text-blue-400" /> CREA-SE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadDemoCase('mulheres_mil')}
+                  className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-purple-500 border border-black/10 dark:border-white/10 text-purple-700 dark:text-purple-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
+                  title="Mulheres Mil - Folha de Pagamento com 16 Bolsistas e Docs SIAFI"
+                >
+                  <Briefcase className="w-3 h-3 shrink-0 text-purple-600 dark:text-purple-400" /> Mulheres Mil
                 </button>
                 <button
                   type="button"
@@ -868,11 +961,19 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </button>
                 <button
                   type="button"
+                  onClick={() => loadDemoCase('divergencia_calculo')}
+                  className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-rose-500 border border-black/10 dark:border-white/10 text-rose-700 dark:text-rose-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
+                  title="Divergência de Cálculo IN 1234/12"
+                >
+                  <Calculator className="w-3 h-3 shrink-0 text-rose-600 dark:text-rose-400" /> Divergência
+                </button>
+                <button
+                  type="button"
                   onClick={() => loadDemoCase('com_restricao')}
-                  className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-red-500 border border-black/10 dark:border-white/10 text-red-700 dark:text-red-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
+                  className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-amber-500 border border-black/10 dark:border-white/10 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
                   title="Serviço Comercial com Restrições (Falta de Ateste e CND Vencida)"
                 >
-                  <AlertTriangle className="w-3 h-3 shrink-0 text-red-600 dark:text-red-400" /> Com Ocorrência
+                  <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" /> Com Ocorrência
                 </button>
                 <button
                   type="button"
@@ -1111,119 +1212,131 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </div>
               )}
 
-              {/* DETAIL TABS NAVIGATION */}
-              <div className="flex items-center gap-1.5 p-1.5 bg-gray-100 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 overflow-x-auto shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailTab('visao_geral')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    activeDetailTab === 'visao_geral'
-                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Visão Geral
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailTab('calculadora_confronto')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    activeDetailTab === 'calculadora_confronto'
-                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
-                >
-                  <Calculator className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" /> Calculadora & Confronto Legal
-                  {auditResult.confrontoCalculadora?.statusConfronto === 'DIVERGENCIA_DETECTADA' || auditResult.restricoesDetectadas.some(r => r.codigo.startsWith('005')) ? (
-                    <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-red-600 text-white font-mono font-black animate-pulse">
-                      DIVERGÊNCIA
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 text-[9px] rounded-full bg-emerald-600 text-white font-mono font-black">
-                      IN 1234/12
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveDetailTab('evidencias_encontradas')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    activeDetailTab === 'evidencias_encontradas'
-                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Evidências Encontradas
-                  {auditResult.evidenciasEncontradas && auditResult.evidenciasEncontradas.length > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-blue-600 text-white font-mono font-black">
-                      {auditResult.evidenciasEncontradas.length}
-                    </span>
-                  )}
-                </button>
+              {/* NAVEGAÇÃO DIRETA POR CLIQUES (7 ITENS SEM ROLAGEM) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1.5 bg-gray-100/90 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('documentos_siafi')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
                     activeDetailTab === 'documentos_siafi'
                       ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <Landmark className="w-3.5 h-3.5 text-blue-500" /> Documentos SIAFI
+                  <Landmark className="w-3.5 h-3.5 shrink-0 text-blue-500" />
+                  <span className="truncate">Docs SIAFI</span>
                   {auditResult.documentosSiafiAnalisados && auditResult.documentosSiafiAnalisados.length > 0 && (
-                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-blue-600 text-white font-mono font-black">
+                    <span className={`px-1.5 py-0.2 text-[9px] rounded-full font-mono font-black ${
+                      activeDetailTab === 'documentos_siafi'
+                        ? 'bg-[#00FF00] text-black dark:bg-black dark:text-[#00FF00]'
+                        : 'bg-blue-600 text-white'
+                    }`}>
                       {auditResult.documentosSiafiAnalisados.length}
                     </span>
                   )}
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('documentos_sei')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
                     activeDetailTab === 'documentos_sei'
                       ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <Layers className="w-3.5 h-3.5 text-neutral-500" /> Documentos SEI
+                  <Layers className="w-3.5 h-3.5 shrink-0 text-neutral-500" />
+                  <span className="truncate">Docs SEI</span>
                   {((auditResult.documentosProcessuaisDetalhados?.length || 0) > 0 || (auditResult.documentosIdentificados?.length || 0) > 0) && (
-                    <span className="px-1.5 py-0.2 text-[10px] rounded-full bg-neutral-600 text-white font-mono font-black">
+                    <span className={`px-1.5 py-0.2 text-[9px] rounded-full font-mono font-black ${
+                      activeDetailTab === 'documentos_sei'
+                        ? 'bg-[#00FF00] text-black dark:bg-black dark:text-[#00FF00]'
+                        : 'bg-neutral-600 text-white'
+                    }`}>
                       {auditResult.documentosProcessuaisDetalhados?.length || auditResult.documentosIdentificados?.length}
                     </span>
                   )}
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('parecer_tecnico')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
                     activeDetailTab === 'parecer_tecnico'
                       ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <Scale className="w-3.5 h-3.5 text-emerald-500" /> Parecer do Conformista
+                  <Scale className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span className="truncate">Parecer</span>
+                  <span className={`px-1.5 py-0.2 text-[9px] rounded-full font-mono font-black ${
+                    auditResult.resultado === 'SEM OCORRÊNCIA'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-amber-600 text-white'
+                  }`}>
+                    {auditResult.resultado === 'SEM OCORRÊNCIA' ? 'OK' : '!'}
+                  </span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('escrita_contabil')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
                     activeDetailTab === 'escrita_contabil'
                       ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <PenTool className="w-3.5 h-3.5 text-amber-500" /> Escrita Contábil
+                  <PenTool className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                  <span className="truncate">Escrita</span>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => setActiveDetailTab('checklist')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                    activeDetailTab === 'checklist'
+                  onClick={() => setActiveDetailTab('evidencias_encontradas')}
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
+                    activeDetailTab === 'evidencias_encontradas'
                       ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
-                      : 'text-black/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Checklist
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <span className="truncate">Evidências</span>
+                  {auditResult.evidenciasEncontradas && auditResult.evidenciasEncontradas.length > 0 && (
+                    <span className={`px-1.5 py-0.2 text-[9px] rounded-full font-mono font-black ${
+                      activeDetailTab === 'evidencias_encontradas'
+                        ? 'bg-[#00FF00] text-black dark:bg-black dark:text-[#00FF00]'
+                        : 'bg-blue-600 text-white'
+                    }`}>
+                      {auditResult.evidenciasEncontradas.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('calculadora_confronto')}
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
+                    activeDetailTab === 'calculadora_confronto'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <Calculator className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                  <span className="truncate">Calculadora</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('visao_geral')}
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
+                    activeDetailTab === 'visao_geral'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Visão Geral</span>
                 </button>
               </div>
 
@@ -1277,6 +1390,21 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                       </div>
                       <p className="text-[11px] leading-relaxed text-blue-900/90 dark:text-blue-200/90">
                         O processo refere-se ao pagamento de taxas legais e Anotações de Responsabilidade Técnica (ARTs) devidas a conselho autárquico de fiscalização profissional. <strong>Não se aplica a exigência de Nota Fiscal mercantil</strong>. A liquidação está regularmente amparada em <strong>Boletos Bancários do Banco do Brasil com QR Code PIX</strong>, <strong>espelhos/minutas das ARTs no SITAC</strong> e <strong>Atestado formal de Liquidação</strong> emitido pelo setor de engenharia. Retenções na fonte da IN RFB nº 1.234/2012 não são devidas.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Specific Legal Dispensation Banner for Folha de Pagamento Mulheres Mil */}
+                {auditResult.naturezaProcesso === 'FOLHA_PAGAMENTO_EXTERNA' && (
+                  <div className="p-3.5 bg-purple-50/80 dark:bg-purple-950/30 border border-purple-300/80 dark:border-purple-800/60 rounded-xl flex items-start gap-3 text-purple-900 dark:text-purple-200">
+                    <Briefcase className="w-5 h-5 text-purple-700 dark:text-purple-400 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <div className="font-black uppercase tracking-wider text-[10px] text-purple-800 dark:text-purple-300">
+                        Folha de Pagamento do Programa Mulheres Mil (Portaria IFS nº 1.633/2026 e Lei nº 12.513/2011)
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-purple-900/90 dark:text-purple-200/90">
+                        O processo ampara a remuneração de profissionais da educação e tutores vinculados ao Pronatec/Mulheres Mil. <strong>Não cabe emissão de nota fiscal comercial</strong>, sendo a despesa liquidada e paga mediante <strong>Folha de Pagamento Consolidada</strong>, <strong>Recibos de Bolsas/RPA individuais</strong>, <strong>Atestes de Frequência das Coordenadoras</strong> e documentos contábeis SIAFI (NE 2026NE000820, NS 2026NS009337, NP 2026NP001456, OB 2026OB004475 e GPS/DARF).
                       </p>
                     </div>
                   </div>

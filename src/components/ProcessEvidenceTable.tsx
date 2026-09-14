@@ -13,7 +13,11 @@ import {
   FileText,
   ShieldCheck,
   FileCheck,
-  Info
+  Info,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { ProcessEvidence } from '../types';
 
@@ -25,6 +29,9 @@ export function ProcessEvidenceTable({ evidencias = [] }: ProcessEvidenceTablePr
   const [selectedCategory, setSelectedCategory] = useState<string>('TODAS');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const pageSize = viewMode === 'cards' ? 4 : 8;
 
   const categories = useMemo(() => {
     const counts: Record<string, number> = {
@@ -48,6 +55,10 @@ export function ProcessEvidenceTable({ evidencias = [] }: ProcessEvidenceTablePr
       return matchesCategory && matchesSearch;
     });
   }, [evidencias, selectedCategory, searchTerm]);
+
+  const totalPages = Math.ceil(filteredEvidencias.length / pageSize) || 1;
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const paginated = filteredEvidencias.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const copyEvidencias = () => {
     const text = evidencias.map((ev, i) => 
@@ -102,188 +113,213 @@ export function ProcessEvidenceTable({ evidencias = [] }: ProcessEvidenceTablePr
     }
   };
 
-  // Resumo de contagens
-  const countValores = evidencias.filter(e => e.categoria === 'Valores').length;
-  const countDatas = evidencias.filter(e => e.categoria === 'Datas').length;
-  const countAssinaturas = evidencias.filter(e => e.categoria === 'Assinaturas').length;
-  const countAtestes = evidencias.filter(e => e.categoria === 'Atestes e Certidões' || e.categoria === 'Normativo / Autorizativo').length;
-
   return (
-    <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-4 transition-colors">
+    <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-3.5 transition-colors">
       {/* HEADER DA SEÇÃO */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" />
-            Evidências Encontradas no Processo Original
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-black/5 dark:bg-white/10 text-black/80 dark:text-white/80">
-              {evidencias.length}
-            </span>
-          </h4>
-          <p className="text-[11px] text-black/60 dark:text-white/60 mt-0.5">
-            Mapeamento dos campos concretos (valores, datas, assinaturas e atestes) que embasaram o parecer técnico final.
-          </p>
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-emerald-100 dark:bg-[#00FF00]/15 text-emerald-800 dark:text-[#00FF00] rounded-xl">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
+              Evidências Encontradas no Processo
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-black/5 dark:bg-white/10 text-black/80 dark:text-white/80">
+                {evidencias.length}
+              </span>
+            </h4>
+            <p className="text-[11px] text-black/60 dark:text-white/60">
+              Navegação paginada sem rolagem de tela.
+            </p>
+          </div>
         </div>
 
-        {evidencias.length > 0 && (
-          <button
-            type="button"
-            onClick={copyEvidencias}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all text-black dark:text-white"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 text-emerald-600 dark:text-[#00FF00]" /> Rol Copiado!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3" /> Copiar Rol de Evidências
-              </>
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* CARDS DE RESUMO DAS EVIDÊNCIAS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-        <div className="p-3 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl">
-          <div className="flex items-center gap-1.5 text-emerald-600 dark:text-[#00FF00] mb-1">
-            <DollarSign className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-black uppercase tracking-wider">Valores Auditados</span>
+        <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-[#202326] p-1 rounded-xl border border-black/5 dark:border-white/10 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                viewMode === 'cards'
+                  ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                  : 'text-black/60 dark:text-white/60'
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" /> Cartões
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+                viewMode === 'table'
+                  ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                  : 'text-black/60 dark:text-white/60'
+              }`}
+            >
+              <List className="w-3 h-3" /> Tabela
+            </button>
           </div>
-          <div className="text-base font-black text-black dark:text-white font-mono">{countValores}</div>
-          <div className="text-[9px] text-black/50 dark:text-white/50">Montantes, retenções e taxas</div>
-        </div>
 
-        <div className="p-3 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl">
-          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 mb-1">
-            <Calendar className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-black uppercase tracking-wider">Datas e Prazos</span>
-          </div>
-          <div className="text-base font-black text-black dark:text-white font-mono">{countDatas}</div>
-          <div className="text-[9px] text-black/50 dark:text-white/50">Vencimento, emissão e cronologia</div>
-        </div>
-
-        <div className="p-3 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl">
-          <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 mb-1">
-            <PenTool className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-black uppercase tracking-wider">Assinaturas e Atos</span>
-          </div>
-          <div className="text-base font-black text-black dark:text-white font-mono">{countAssinaturas}</div>
-          <div className="text-[9px] text-black/50 dark:text-white/50">Ordenadores, Reitoria e Fiscais</div>
-        </div>
-
-        <div className="p-3 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl">
-          <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 mb-1">
-            <FileCheck className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-black uppercase tracking-wider">Atestes & CNDs</span>
-          </div>
-          <div className="text-base font-black text-black dark:text-white font-mono">{countAtestes}</div>
-          <div className="text-[9px] text-black/50 dark:text-white/50">Regularidade e liquidação física</div>
+          {evidencias.length > 0 && (
+            <button
+              type="button"
+              onClick={copyEvidencias}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all text-black dark:text-white border border-black/5 dark:border-white/10"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 text-emerald-600 dark:text-[#00FF00]" /> Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" /> Copiar Rol
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* FILTROS E PESQUISA */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2 border-t border-black/5 dark:border-white/10">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-black/5 dark:border-white/10">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] font-bold">
           {Object.entries(categories).map(([cat, count]) => (
             <button
               key={cat}
               type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              onClick={() => { setSelectedCategory(cat); setPage(1); }}
+              className={`px-2.5 py-1 rounded-lg uppercase tracking-wider transition-all flex items-center gap-1 whitespace-nowrap ${
                 selectedCategory === cat
                   ? 'bg-black text-[#00FF00] dark:bg-white dark:text-black shadow-sm'
                   : 'bg-gray-100 dark:bg-[#202326] text-black/70 dark:text-white/70 hover:bg-gray-200 dark:hover:bg-[#282C30]'
               }`}
             >
               <span>{cat === 'TODAS' ? 'Todas' : cat}</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] ${
-                selectedCategory === cat
-                  ? 'bg-white/20 text-[#00FF00] dark:bg-black/20 dark:text-black font-mono'
-                  : 'bg-black/5 dark:bg-white/10 font-mono'
-              }`}>
-                {count}
-              </span>
+              <span className="opacity-60 text-[9px]">({count})</span>
             </button>
           ))}
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-black/40 dark:text-white/40" />
+        <div className="relative w-full sm:w-56 shrink-0">
+          <Search className="w-3.5 h-3.5 text-black/40 dark:text-white/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por campo, valor, doc..."
+            placeholder="Pesquisar evidência..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-lg text-xs text-black dark:text-white placeholder-black/40 dark:placeholder-white/40 focus:outline-none focus:border-black dark:focus:border-white"
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            className="w-full pl-8 pr-3 py-1 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-xl text-xs text-black dark:text-white placeholder:text-black/40 dark:placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white"
           />
         </div>
       </div>
 
-      {/* LISTAGEM DE EVIDÊNCIAS */}
+      {/* CONTEÚDO: MODO CARTÕES OU MODO TABELA */}
       {filteredEvidencias.length === 0 ? (
         <div className="p-8 text-center text-xs text-black/50 dark:text-white/50 space-y-2 border border-dashed border-black/10 dark:border-white/10 rounded-xl">
           <Info className="w-6 h-6 mx-auto text-black/30 dark:text-white/30" />
           <div>Nenhuma evidência localizada com os critérios de filtro selecionados.</div>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredEvidencias.map((evidencia, idx) => (
+      ) : viewMode === 'cards' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {paginated.map((evidencia, idx) => (
             <div
               key={idx}
-              className="p-4 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl space-y-2.5 hover:border-black/20 dark:hover:border-white/20 transition-colors"
+              className="p-3.5 bg-gray-50 dark:bg-[#202326] border border-black/5 dark:border-white/10 rounded-xl space-y-2 hover:border-black/20 dark:hover:border-white/20 transition-colors text-xs"
             >
-              {/* Top row: Campo, Categoria Badge, Origem */}
-              <div className="flex items-start justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${getCategoryBadgeClass(evidencia.categoria)}`}>
-                    {getCategoryIcon(evidencia.categoria)}
-                    {evidencia.categoria}
-                  </span>
-                  <h5 className="text-xs font-black text-black dark:text-white">
-                    {evidencia.campo}
-                  </h5>
-                </div>
-
-                <div className="text-[10px] text-black/60 dark:text-white/60 flex items-center gap-1 font-medium bg-white dark:bg-[#16181A] px-2.5 py-0.5 rounded-md border border-black/5 dark:border-white/10">
-                  <FileText className="w-3 h-3 text-black/40 dark:text-white/40" />
-                  <span>Origem: <strong>{evidencia.documentoOrigem}</strong></span>
-                </div>
-              </div>
-
-              {/* Valor / Conteúdo extraído */}
-              <div className="p-2.5 bg-white dark:bg-[#16181A] rounded-lg border border-black/5 dark:border-white/10 font-mono text-[11px] text-black/90 dark:text-white/90 break-words flex items-start gap-2">
-                <span className="text-[9px] font-black uppercase text-black/40 dark:text-white/40 shrink-0 select-none mt-0.5">
-                  Dado Extraído:
+              <div className="flex items-start justify-between flex-wrap gap-1.5">
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${getCategoryBadgeClass(evidencia.categoria)}`}>
+                  {getCategoryIcon(evidencia.categoria)}
+                  {evidencia.categoria}
                 </span>
-                <span className="font-semibold text-emerald-700 dark:text-[#00FF00]">
-                  {evidencia.valorOuConteudo}
+
+                <span className="text-[10px] text-black/60 dark:text-white/60 font-medium truncate max-w-[170px]">
+                  Origem: <strong>{evidencia.documentoOrigem}</strong>
                 </span>
               </div>
 
-              {/* Impacto no Parecer Técnico */}
-              <div className="flex items-start gap-2 text-[11px] text-black/80 dark:text-white/80 leading-relaxed font-sans pt-0.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-[#00FF00] shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-black/90 dark:text-white/90">Fundamentação Técnica no Parecer:</strong>{' '}
-                  <span className="text-black/70 dark:text-white/70">{evidencia.impactoNoParecer}</span>
-                </div>
+              <div className="font-bold text-black dark:text-white text-xs">
+                {evidencia.campo}
+              </div>
+
+              <div className="p-2 bg-white dark:bg-[#16181A] rounded-lg border border-black/5 dark:border-white/10 font-mono text-[11px] text-emerald-700 dark:text-[#00FF00] font-semibold break-words">
+                {evidencia.valorOuConteudo}
+              </div>
+
+              <div className="text-[10px] text-black/70 dark:text-white/70 leading-relaxed line-clamp-2">
+                <strong>Parecer:</strong> {evidencia.impactoNoParecer}
               </div>
             </div>
           ))}
         </div>
+      ) : (
+        /* MODO TABELA SINTÉTICA COMPACTA */
+        <div className="overflow-x-auto rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#181a1d]">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-[#202326] border-b border-black/10 dark:border-white/10 text-[9px] uppercase font-black text-black/60 dark:text-white/60 tracking-wider">
+                <th className="p-2">Categoria</th>
+                <th className="p-2">Campo</th>
+                <th className="p-2">Dado Extraído</th>
+                <th className="p-2">Documento de Origem</th>
+                <th className="p-2">Fundamentação Técnica</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5 dark:divide-white/5 text-[11px]">
+              {paginated.map((ev, idx) => (
+                <tr key={idx} className="hover:bg-gray-50/80 dark:hover:bg-white/5 transition-colors">
+                  <td className="p-2 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${getCategoryBadgeClass(ev.categoria)}`}>
+                      {ev.categoria}
+                    </span>
+                  </td>
+                  <td className="p-2 font-bold text-black dark:text-white whitespace-nowrap">
+                    {ev.campo}
+                  </td>
+                  <td className="p-2 font-mono font-semibold text-emerald-700 dark:text-[#00FF00] whitespace-nowrap">
+                    {ev.valorOuConteudo}
+                  </td>
+                  <td className="p-2 text-black/70 dark:text-white/70 whitespace-nowrap">
+                    {ev.documentoOrigem}
+                  </td>
+                  <td className="p-2 text-black/80 dark:text-white/80 max-w-xs truncate">
+                    {ev.impactoNoParecer}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* FOOTER INFORMATIVO */}
-      <div className="p-3 bg-black dark:bg-[#0C0D0E] text-[#00FF00] rounded-xl text-xs font-mono flex items-center justify-between border border-white/10 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 shrink-0 text-[#00FF00]" />
-          <span>Rastreabilidade Processual Plena (Art. 63 Lei 4.320/64 c/c Macrofunção SIAFI 020314)</span>
+      {/* PAGINAÇÃO COMPACTA */}
+      <div className="flex items-center justify-between text-xs px-1 pt-1 text-black/60 dark:text-white/60">
+        <div className="text-[11px]">
+          Exibindo <strong>{filteredEvidencias.length > 0 ? (safePage - 1) * pageSize + 1 : 0}</strong> a <strong>{Math.min(safePage * pageSize, filteredEvidencias.length)}</strong> de <strong>{filteredEvidencias.length}</strong> evidências
         </div>
-        <span className="text-[10px] text-white/70">
-          Todas as evidências extraídas correspondem a peças autênticas do processo.
-        </span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            className="p-1 px-2.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-[#202326] disabled:opacity-40 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-bold flex items-center gap-1 text-black dark:text-white"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" /> Anterior
+          </button>
+
+          <span className="text-[11px] font-mono font-bold text-black dark:text-white">
+            {safePage} / {totalPages}
+          </span>
+
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            className="p-1 px-2.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-[#202326] disabled:opacity-40 hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-bold flex items-center gap-1 text-black dark:text-white"
+          >
+            Próximo <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );

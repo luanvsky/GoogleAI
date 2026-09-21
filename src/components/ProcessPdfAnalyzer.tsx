@@ -32,8 +32,9 @@ import { SiafiDocumentsTable } from './SiafiDocumentsTable';
 import { ProcessDocumentsTable } from './ProcessDocumentsTable';
 import { ParecerTecnicoView } from './ParecerTecnicoView';
 import { ProcessEvidenceTable } from './ProcessEvidenceTable';
-import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO, DEMO_MULHERES_MIL_JULHO2026 } from '../data/demoScenarios';
+import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO, DEMO_MULHERES_MIL_JULHO2026, DEMO_UNIR_POCO_REDONDO } from '../data/demoScenarios';
 import { ConfrontoCalculadoraTributaria } from './ConfrontoCalculadoraTributaria';
+import { GuiaDocumentosTable } from './GuiaDocumentosTable';
 
 interface ProcessPdfAnalyzerProps {
   conformistaPadrao: string;
@@ -67,7 +68,7 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'evidencias_encontradas' | 'calculadora_confronto' | 'visao_geral'>('documentos_siafi');
+  const [activeDetailTab, setActiveDetailTab] = useState<'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'evidencias_encontradas' | 'calculadora_confronto' | 'visao_geral' | 'guia_documentos'>('documentos_siafi');
   const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
@@ -210,9 +211,16 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   };
 
   // Carregar Exemplo Demonstrativo para testes rápidos
-  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea' | 'divergencia_calculo' | 'mulheres_mil') => {
+  const loadDemoCase = (scenario: 'com_restricao' | 'sem_restricao' | 'auxilio_estudantil' | 'taxas_crea' | 'divergencia_calculo' | 'mulheres_mil' | 'unir_poco_redondo') => {
     setErrorMessage('');
     setIsSaved(false);
+    if (scenario === 'unir_poco_redondo') {
+      setFile({ name: 'Processo_SEI_23856.000189_2026_12_UNIR_Locacoes_Poco_Redondo.pdf', size: 4820300 } as File);
+      setAuditResult(DEMO_UNIR_POCO_REDONDO);
+      setActiveDetailTab('documentos_siafi');
+      onAuditChange?.(DEMO_UNIR_POCO_REDONDO);
+      return;
+    }
     if (scenario === 'divergencia_calculo') {
       setFile({ name: 'Processo_SEI_23060.002891_2026_NF_Servicos_TI_Divergencia.pdf', size: 1850300 } as File);
       setAuditResult(DEMO_DIVERGENCIA_CALCULO);
@@ -743,7 +751,15 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              type="button"
+              onClick={() => loadDemoCase('unir_poco_redondo')}
+              className="px-3 py-1.5 bg-[#00FF00]/20 hover:bg-[#00FF00]/30 border border-[#00FF00]/40 text-[#00FF00] rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98]"
+              title="Testar Processo Anexado: UNIR Locações - Poço Redondo (Sem Ocorrência)"
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#00FF00]" /> ⭐ UNIR Poço Redondo
+            </button>
             <button
               type="button"
               onClick={() => loadDemoCase('taxas_crea')}
@@ -763,10 +779,10 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
             <button
               type="button"
               onClick={() => loadDemoCase('sem_restricao')}
-              className="px-3 py-1.5 bg-[#00FF00]/10 hover:bg-[#00FF00]/20 border border-[#00FF00]/30 text-[#00FF00] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
               title="Carregar processo regular"
             >
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#00FF00]" /> Sem Ocorrência
+              <CheckCircle2 className="w-3.5 h-3.5 text-white/80" /> Sem Ocorrência
             </button>
           </div>
         </div>
@@ -937,6 +953,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                 <button
                   type="button"
+                  onClick={() => loadDemoCase('unir_poco_redondo')}
+                  className="col-span-2 sm:col-span-3 px-2 py-2 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 rounded-lg text-[10px] font-black transition-all text-center truncate flex items-center justify-center gap-1.5 shadow-sm"
+                  title="Processo Anexado: UNIR Locações - Poço Redondo (Limpeza Contrato 52/2025 - R$ 15.031,40)"
+                >
+                  <Building2 className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /> ⭐ UNIR Locações (Poço Redondo - Contrato 52/2025)
+                </button>
+                <button
+                  type="button"
                   onClick={() => loadDemoCase('taxas_crea')}
                   className="px-2 py-1.5 bg-white dark:bg-[#202326] hover:border-blue-500 border border-black/10 dark:border-white/10 text-blue-700 dark:text-blue-300 rounded-lg text-[10px] font-bold transition-all text-center truncate flex items-center justify-center gap-1"
                   title="Taxas CREA-SE (ARTs / Boletos BB / Parecer e Docs SIAFI)"
@@ -1054,10 +1078,24 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
               <div className="pt-2 flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
                 <button
                   type="button"
+                  onClick={() => loadDemoCase('unir_poco_redondo')}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-md active:scale-95"
+                >
+                  <Building2 className="w-4 h-4 text-emerald-200" /> ⭐ UNIR Poço Redondo (Anexo)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadDemoCase('taxas_crea')}
+                  className="px-3 py-2 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-300 dark:border-blue-800/60 text-blue-800 dark:text-blue-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <Landmark className="w-4 h-4" /> Taxas CREA-SE
+                </button>
+                <button
+                  type="button"
                   onClick={() => loadDemoCase('auxilio_estudantil')}
                   className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                 >
-                  <GraduationCap className="w-4 h-4" /> Auxílio Estudantil MNR (Sem NF)
+                  <GraduationCap className="w-4 h-4" /> Auxílio Estudantil
                 </button>
                 <button
                   type="button"
@@ -1065,13 +1103,6 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   className="px-3 py-2 bg-white dark:bg-[#202326] hover:bg-red-50 dark:hover:bg-red-950/40 border border-red-300 dark:border-red-800/60 text-red-700 dark:text-red-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                 >
                   <AlertTriangle className="w-4 h-4" /> Serviços com Restrições
-                </button>
-                <button
-                  type="button"
-                  onClick={() => loadDemoCase('sem_restricao')}
-                  className="px-3 py-2 bg-white dark:bg-[#202326] hover:bg-gray-100 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-black dark:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" /> Compra Regular
                 </button>
               </div>
             </div>
@@ -1212,8 +1243,8 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </div>
               )}
 
-              {/* NAVEGAÇÃO DIRETA POR CLIQUES (7 ITENS SEM ROLAGEM) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 p-1.5 bg-gray-100/90 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
+              {/* NAVEGAÇÃO DIRETA POR CLIQUES (8 ITENS SEM ROLAGEM) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 p-1.5 bg-gray-100/90 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('documentos_siafi')}
@@ -1338,6 +1369,26 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   <FileText className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">Visão Geral</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('guia_documentos')}
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
+                    activeDetailTab === 'guia_documentos'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+                  <span className="truncate">15 Docs</span>
+                  <span className={`px-1.5 py-0.2 text-[9px] rounded-full font-mono font-black ${
+                    activeDetailTab === 'guia_documentos'
+                      ? 'bg-[#00FF00] text-black dark:bg-black dark:text-[#00FF00]'
+                      : 'bg-indigo-600 text-white'
+                  }`}>
+                    15
+                  </span>
+                </button>
               </div>
 
               {/* TAB 1: VISÃO GERAL */}
@@ -1405,6 +1456,21 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                       </div>
                       <p className="text-[11px] leading-relaxed text-purple-900/90 dark:text-purple-200/90">
                         O processo ampara a remuneração de profissionais da educação e tutores vinculados ao Pronatec/Mulheres Mil. <strong>Não cabe emissão de nota fiscal comercial</strong>, sendo a despesa liquidada e paga mediante <strong>Folha de Pagamento Consolidada</strong>, <strong>Recibos de Bolsas/RPA individuais</strong>, <strong>Atestes de Frequência das Coordenadoras</strong> e documentos contábeis SIAFI (NE 2026NE000820, NS 2026NS009337, NP 2026NP001456, OB 2026OB004475 e GPS/DARF).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Specific Legal Dispensation & Retention Banner for UNIR Locações (Limpeza e Conservação) */}
+                {auditResult.naturezaProcesso === 'SERVICOS_TERCEIRIZADOS_LIMPEZA' && (
+                  <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-300/80 dark:border-emerald-800/60 rounded-xl flex items-start gap-3 text-emerald-900 dark:text-emerald-200">
+                    <Building2 className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <div className="font-black uppercase tracking-wider text-[10px] text-emerald-800 dark:text-emerald-300">
+                        Serviços Terceirizados com Mão de Obra Exclusiva - UNIR Locações (Contrato nº 52/2025 - Poço Redondo)
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-emerald-900/90 dark:text-emerald-200/90">
+                        O processo ampara a prestação de serviços de limpeza e conservação predial no Campus Poço Redondo (NFS-e 2026001316, no valor de R$ 15.031,40). A despesa está <strong>regularmente liquidada e atestada pelo Fiscal Técnico</strong> (com IMR 98%), acompanhada de certidões SICAF e CNDT válidas. As retenções de <strong>ISSQN Municipal (5% - R$ 751,57)</strong> foram pagas diretamente via Lista de Fatura LF 2026LF000114 e a <strong>Conta Vinculada (R$ 2.450,12)</strong> foi bloqueada conforme a IN SEGES/MP nº 05/2017, resultando em conformidade estrita <strong>SEM OCORRÊNCIA</strong>.
                       </p>
                     </div>
                   </div>
@@ -1756,6 +1822,11 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* TAB 8: GUIA 15 DOCUMENTOS DO SIAFI */}
+              {activeDetailTab === 'guia_documentos' && (
+                <GuiaDocumentosTable />
               )}
 
               {/* INTEGRATION ACTIONS */}

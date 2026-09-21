@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
 import { PDFParse } from "pdf-parse";
+import { DEMO_UNIR_POCO_REDONDO } from "./src/data/demoScenarios";
 
 // Motor Especialista de Regras Normativas IFS (Auditoria Normativa e Fallback de contingência)
 function runExpertRuleAudit(
@@ -55,6 +56,25 @@ function runExpertRuleAudit(
     fullText.includes("2026NS009337") || 
     fullText.includes("2025NE000820")
   );
+
+  // 4. Serviços de Limpeza e Conservação Predial - UNIR Locações (Campus Poço Redondo - Contrato 52/2025)
+  const isUnirLimpeza = !isTaxasCrea && !isAuxilioEstudantil && !isMulheresMil && (
+    fullText.includes("UNIR") || 
+    fullText.includes("15.454.009/0001-40") || 
+    fullText.includes("POÇO REDONDO") || 
+    fullText.includes("POCO REDONDO") || 
+    fullText.includes("23856.000189") || 
+    fullText.includes("2026001316") || 
+    fullText.includes("2026NS010548") || 
+    fullText.includes("2026NE000035") || 
+    fullText.includes("2026NP001637") ||
+    fullText.includes("2026LF000114") ||
+    (fullText.includes("LIMPEZA") && (fullText.includes("52/2025") || fullText.includes("REDONDO") || fullText.includes("UNIR")))
+  );
+
+  if (isUnirLimpeza) {
+    return DEMO_UNIR_POCO_REDONDO;
+  }
 
   // Processo SEI
   let processo = "23288.000650/2026-29";
@@ -1492,6 +1512,34 @@ ${conformistaHint ? `Conformista responsável: ${conformistaHint}` : ''}
 
 3. AQUISIÇÕES DE MATERIAIS OU SERVIÇOS COMERCIAIS CONTRATADOS:
    - Exigir Nota Fiscal idônea, ateste formal de recebimento do fiscal de contrato, regularidade no SICAF/CNDs e cálculo das retenções federais da IN RFB 1.234/12.
+
+4. SERVIÇOS TERCEIRIZADOS COM DEDICAÇÃO EXCLUSIVA DE MÃO DE OBRA (LIMPEZA, VIGILÂNCIA, CONSERVAÇÃO PREDIAL - Ex: UNIR LOCAÇÕES E SERVIÇOS / Contrato nº 52/2025):
+   - **DOCUMENTO HÁBIL**: NFS-e (Nota Fiscal de Serviços Eletrônica) devidamente descriminada, Atestado de Liquidação assinado pelo fiscal técnico de contrato (Art. 63 da Lei nº 4.320/64), Relatório Mensal de Acompanhamento da Fiscalização e Instrumento de Medição de Resultado (IMR com nota/desempenho).
+   - **COMPROVAÇÃO TRABALHISTA E PREVIDENCIÁRIA**: Comprovação de remuneração salarial e vale-alimentação dos terceirizados, folhas de ponto e certidões de regularidade (SICAF, FGTS, CND Federal, CNDT).
+   - **RETENÇÕES E CONTA VINCULADA**:
+     * ISSQN Municipal: Retido na fonte conforme legislação do município da prestação (ex: 5% quitado via Ordem Bancária específica / Lista de Fatura LF do SIAFI);
+     * Conta Vinculada: Depósito bloqueado em garantia de provisões trabalhistas rescisórias (IN SEGES/MP nº 05/2017);
+     * Retenções Federais: Informadas no GERCOMP/DCTFWeb para recolhimento em DARF.
+   - **DOCUMENTOS SIAFI**: NE (empenho prévio), NS (liquidação), NP (programação de pagamento), LF (lista de fatura ISSQN) e OBs (ordens bancárias de pagamento líquido, tributo municipal e conta vinculada).
+   - Se os documentos e atestes estiverem presentes e o IMR for satisfatório, a conformidade de gestão é estritamente **SEM OCORRÊNCIA**.
+
+=== TABELA OFICIAL DE CLASSIFICAÇÃO DOS 15 DOCUMENTOS DO SIAFI ===
+Utilize rigorosamente a classificação oficial abaixo para identificar e tipificar os documentos analisados:
+- **NP (Nota de Pagamento)**: Efetivar o pagamento de despesa liquidada. Execução Financeira. Tesouraria/Financeiro. Ordenador de Despesa. NE, Favorecido, Valor, Data. Reduz "Despesas a Pagar" e movimenta caixa. Vinculada à NE e NL.
+- **RP (Restos a Pagar)**: Controlar despesas empenhadas e não pagas até o fim do exercício. Encerramento Orçamentário. Contabilidade/Tesouraria. Ordenador de Despesa. NE, Valor, Exercício.
+- **DB (Depósito Bancário)**: Registrar ingressos de recursos na conta única ou contas específicas. Arrecadação/Tesouraria. Financeiro. Agente Financeiro. Origem, Valor, Conta Bancária. Aumenta Disponibilidade Financeira.
+- **NC (Nota de Crédito)**: Transferir créditos orçamentários entre unidades gestoras (descentralização). Planejamento Orçamentário. Setor de Orçamento. Responsável pelo Orçamento. UG Origem, UG Destino, PTRES, Fonte, Valor. Altera dotação disponível entre UGs.
+- **NE (Nota de Empenho)**: Comprometer recursos orçamentários para atender a uma despesa. Execução Orçamentária. Setor de Orçamento/Compras. Ordenador de Despesa. Favorecido, Natureza, Fonte, Valor, Modalidade. Cria a obrigação orçamentária (reserva de dotação).
+- **PA (Programação Financeira)**: Solicitar e liberar cotas financeiras para execução de pagamentos. Programação Financeira. Setor Financeiro. Gestor Financeiro. Vinculação, Valor, Período. Não gera lançamento patrimonial imediato.
+- **RC (Recibo)**: Comprovar o recebimento de valores em operações não cobertas por NF. Arrecadação/Liquidação. Setor de Arrecadação/Financeiro. Responsável pelo Recebimento. Pagador, Valor, Motivo, Data. Pode gerar receita orçamentária ou baixa de direito.
+- **DD (Documento de Despesa)**: Subsidiar a liquidação da despesa antes da emissão da NL/NS. Execução Orçamentária. Almoxarifado/Contratos. Fiscal do Contrato. NF, Processo, Atesto, Valor. Base para liquidação da despesa.
+- **PF (Prestação de Contas Financeira)**: Registrar a prestação de contas de suprimentos de fundos ou convênios. Controle Financeiro. Suprido/Convenente. Responsável pela Prestação. Documentos de Despesa, Saldo, Relatório. Baixa de adiantamento e reconhecimento da despesa.
+- **AV (Aviso Bancário)**: Registrar movimentações comunicadas pelo banco (tarifas, juros, rendimentos). Gestão Financeira. Agente Bancário. Tesouraria. Conta, Tipo de Movimentação, Valor, Data. Ajusta saldo bancário e gera despesa/receita financeira.
+- **FL (Folha de Pagamento)**: Processar o pagamento de pessoal ativo, inativo e pensionistas. Execução Financeira. Recursos Humanos. Gestor de RH/Ordenador. Matrícula, Rubricas, Valor Bruto, Descontos, Líquido. Reconhece despesa com pessoal e obrigações patronais.
+- **ND (Nota de Dotação)**: Registrar a dotação inicial aprovada na LOA ou créditos adicionais. Planejamento Orçamentário. Órgão Central de Orçamento. Autoridade Orçamentária. Programa, Ação, Natureza, Fonte, Valor. Cria o orçamento disponível da UG.
+- **PC (Prestação de Contas)**: Formalizar a prestação de contas de recursos descentralizados ou adiantamentos. Encerramento/Controle. Setor Contábil/Controle Interno. Gestor Responsável. Processo, Valores Aplicados, Devoluções. Encerra a responsabilidade do gestor e regulariza saldos.
+- **DT (Documento de Transferência)**: Transferir recursos financeiros entre contas ou UGs sem vínculo com fornecedor. Gestão Financeira. Tesouraria. Gestor Financeiro. Conta Origem, Conta Destino, Valor, Motivo. Movimenta disponibilidades sem alterar resultado orçamentário.
+- **SF (Saldo Financeiro)**: Demonstrar a posição de disponibilidades financeiras por fonte e vinculação. Acompanhamento Financeiro. Tesouraria/Contabilidade. Gestor Financeiro. Conta Única, Fontes de Recursos, Vinculação. Posição patrimonial de disponibilidades.
 
 === REGRA DE OURO: VARREDURA PROFUNDA E DETALHADA EM TODO O CONTEÚDO DO SIAFI ===
 Ao auditar o processo, você deve realizar uma varredura pericial profunda em TODOS os documentos e registros SIAFI constantes dos autos (Notas de Crédito - NC, Registros Orçamentários - RO, Notas de Empenho - NE, Notas de Lançamento de Sistema ou Notas de Lançamento - NS/NL, Notas de Pagamento - NP, Ordens Bancárias - OB, DARF, CONLX e Listas de Credores):

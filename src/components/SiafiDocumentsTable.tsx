@@ -41,18 +41,41 @@ export function SiafiDocumentsTable({ documentos }: SiafiDocumentsTableProps) {
 
   const getDocColor = (tipo: string) => {
     switch (tipo.toUpperCase()) {
-      case 'NC':
-        return 'bg-blue-600 text-white border-blue-500';
-      case 'RO':
-        return 'bg-indigo-600 text-white border-indigo-500';
-      case 'NE':
-        return 'bg-amber-600 text-white border-amber-500';
-      case 'NS':
-        return 'bg-purple-600 text-white border-purple-500';
       case 'NP':
         return 'bg-emerald-600 text-white border-emerald-500';
+      case 'RP':
+        return 'bg-orange-600 text-white border-orange-500';
+      case 'DB':
+        return 'bg-cyan-700 text-white border-cyan-600';
+      case 'NC':
+        return 'bg-blue-600 text-white border-blue-500';
+      case 'NE':
+        return 'bg-amber-600 text-white border-amber-500';
+      case 'PA':
+        return 'bg-violet-600 text-white border-violet-500';
+      case 'RC':
+        return 'bg-emerald-700 text-white border-emerald-600';
+      case 'DD':
+        return 'bg-rose-600 text-white border-rose-500';
+      case 'PF':
+        return 'bg-fuchsia-700 text-white border-fuchsia-600';
+      case 'AV':
       case 'OB':
         return 'bg-teal-700 text-white border-teal-600';
+      case 'FL':
+        return 'bg-purple-700 text-white border-purple-600';
+      case 'ND':
+        return 'bg-indigo-600 text-white border-indigo-500';
+      case 'PC':
+        return 'bg-yellow-700 text-white border-yellow-600';
+      case 'DT':
+        return 'bg-sky-700 text-white border-sky-600';
+      case 'SF':
+        return 'bg-lime-700 text-white border-lime-600';
+      case 'NS':
+        return 'bg-purple-600 text-white border-purple-500';
+      case 'RO':
+        return 'bg-indigo-600 text-white border-indigo-500';
       case 'LF':
         return 'bg-sky-700 text-white border-sky-600';
       default:

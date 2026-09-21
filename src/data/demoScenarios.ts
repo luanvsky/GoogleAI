@@ -835,3 +835,384 @@ export const DEMO_MULHERES_MIL_JULHO2026: ProcessAuditResult = {
   sugestaoConformista: "Registrar no SIAFI a Conformidade Diária dos atos de gestão sob o status SEM OCORRÊNCIA (Conforme), em cumprimento à Macrofunção SIAFI 020314.",
   confiancaAnalise: "Motor Especialista Normativo IFS (Auditado Rigoroso)"
 };
+
+export const DEMO_UNIR_POCO_REDONDO: ProcessAuditResult = {
+  processo: "23856.000189/2026-12",
+  numeroDoc: "NFS-e 2026001316 / 2026NE000035 / 2026NS010548",
+  tipoDoc: "DD - Documento de Despesa",
+  naturezaProcesso: "AQUISIÇÃO_OU_SERVIÇO",
+  favorecido: {
+    nome: "UNIR LOCACOES E SERVICOS LTDA",
+    cnpjCpf: "15.454.009/0001-40"
+  },
+  valores: {
+    valorBruto: 15031.40,
+    retencoes: 6184.73,
+    valorLiquido: 8846.67,
+    detalheRetencoes: "R$ 6.184,73 (Deduções discriminadas: ISSQN Poço Redondo 5% R$ 751,57 pago via 2026OB005030 / LF 2026LF000909; Retenção de Conta Vinculada R$ 2.269,12 depositada em garantia no Banco do Brasil via 2026OB005032; Retenções tributárias federais no GERCOMP vinculadas à 2026NP001637: DARF IR/PIS/COFINS/CSLL no montante de R$ 3.164,04)."
+  },
+  resultado: "SEM OCORRÊNCIA",
+  restricoesDetectadas: [],
+  documentosIdentificados: [
+    "NFS-e 2026001316 (R$ 15.031,40 - Prefeitura de Lagarto)",
+    "Contrato Administrativo nº 52/2025 (Limpeza e Conservação)",
+    "Termo de Atestado de Liquidação assinado pelo Fiscal Técnico (Fl. 41)",
+    "Instrumento de Medição de Resultado - IMR Nota 97 (Fls. 38-40)",
+    "Relatório Mensal Circunstanciado de Acompanhamento (Fl. 33)",
+    "Folha de Pagamento dos Terceirizados e Comprovantes Salariais SISBB (Fls. 5-21)",
+    "Nota de Empenho 2026NE000035 (UG 158134 / UGR 154626)",
+    "Nota de Lançamento de Sistema 2026NS010548",
+    "Nota de Programação de Pagamento 2026NP001637",
+    "Lista de Fatura SIAFI 2026LF000114 (ISSQN Poço Redondo)",
+    "Ordem Bancária 2026OB005030 (R$ 8.846,67 - Líquido Favorecido)",
+    "Ordem Bancária 2026OB005031 (R$ 751,57 - ISSQN Prefeitura Municipal)",
+    "Ordem Bancária 2026OB005032 (R$ 2.269,12 - Depósito em Conta Vinculada Bloqueada)",
+    "Guia de FGTS Digital Paga de R$ 21.298,65 (Fl. 52)",
+    "Certidões de Regularidade Fiscal e Trabalhista (SICAF, CND Federal, CNDT e CRF/FGTS)"
+  ],
+  checklistAvaliado: [
+    {
+      item: "Nota de Empenho Prévia e Suficiência Orçamentária (Art. 60 da Lei nº 4.320/64)",
+      status: "CONFORME",
+      observacao: "Nota de Empenho 2026NE000035 emitida tempestivamente em 13/01/2026 na célula orçamentária 33903702 (Limpeza e Conservação), UG 158134 e UGR 154626 (Poço Redondo), com saldo hábil para suportar a fatura mensal."
+    },
+    {
+      item: "Documento Hábil de Despesa e Nota Fiscal de Serviços (Art. 63 da Lei nº 4.320/64)",
+      status: "CONFORME",
+      observacao: "NFS-e nº 2026001316 emitida pela Prefeitura Municipal de Lagarto/SE em 14/09/2026 no valor de R$ 15.031,40, detalhando os 4 postos de trabalho de limpeza do Campus Poço Redondo (3 sem insalubridade e 1 com insalubridade)."
+    },
+    {
+      item: "Fiscalização Técnica, Relatório Mensal e Atesto de Liquidação (Arts. 62 e 63 da Lei 4.320/64)",
+      status: "CONFORME",
+      observacao: "Atestado de Liquidação SEI nº 1073756 firmado pelo fiscal de contrato Gabriel Cruz em 16/09/2026, com Relatório Mensal SEI nº 1073725 e Instrumento de Medição de Resultado - IMR (SEI 1073751) com nota 97 (Conceito BOM)."
+    },
+    {
+      item: "Comprovação de Pagamento de Salários, Ponto e Encargos Trabalhistas dos Terceirizados",
+      status: "CONFORME",
+      observacao: "Folha de ponto de agosto/2026, contracheques individuais e comprovantes de transferência bancária SISBB Banco do Brasil comprovando pagamento tempestivo dos salários e vale-alimentação aos 4 colaboradores (Fls. 5-21)."
+    },
+    {
+      item: "Escrituração e Fidedignidade da Nota de Sistema no SIAFI (Macrofunção 020314)",
+      status: "CONFORME",
+      observacao: "Nota de Sistema 2026NS010548 emitida pelo contador Jean Claude Sauthier em 16/09/2026, com eventos de apropriação 521214, liquidação 401002 e segregação das contas de passivo e deduções tributárias."
+    },
+    {
+      item: "Retenção da Conta Vinculada e Depósito de Garantia no Banco do Brasil",
+      status: "CONFORME",
+      observacao: "Retenção de 31,82% sobre a mão de obra no valor de R$ 2.269,12 devidamente transferida em garantia para a Conta Vinculada nº 3500128311573 no Banco do Brasil via Ordem Bancária 2026OB005032."
+    },
+    {
+      item: "Retenção e Recolhimento de ISSQN Municipal e Tributos Federais (IN RFB 1.234/12)",
+      status: "CONFORME",
+      observacao: "ISSQN de 5% (R$ 751,57) quitado à Fazenda de Poço Redondo via 2026OB005030 / 2026LF000909. Tributos federais agendados no GERCOMP através do título 2026NP001637 para liquidação tempestiva."
+    },
+    {
+      item: "Regularidade Fiscal, Previdenciária e Trabalhista (SICAF, FGTS, CNDT e Fazendas)",
+      status: "CONFORME",
+      observacao: "SICAF com nível de credenciamento válido até 2027 (Fl. 52), CNDT trabalhista até 15/03/2027, FGTS com Certificado de Regularidade até 04/10/2026 acompanhado da Guia GFD paga (R$ 21.298,65), e certidões fazendárias federal, estadual e municipal todas regulares."
+    }
+  ],
+  evidenciasEncontradas: [
+    {
+      campo: "Valor Faturado da NFS-e",
+      valorOuConteudo: "R$ 15.031,40 (NFS-e 2026001316)",
+      documentoOrigem: "NFS-e nº 2026001316 emitida em 14/09/2026 (Fl. 1)",
+      categoria: "Valores",
+      impactoNoParecer: "Documento fiscal emitido com CNPJ correto do fornecedor e tomador, correspondendo à exata medição contratual."
+    },
+    {
+      campo: "Nota de Empenho Vinculada",
+      valorOuConteudo: "2026NE000035 (R$ 16.156,63 global)",
+      documentoOrigem: "SIAFI 2026NE000035 emitida em 13/01/2026 (Fls. 42-43)",
+      categoria: "Classificação Orçamentária",
+      impactoNoParecer: "Empenho prévio e regular na Natureza 33903702, UGR 154626 (Campus Poço Redondo)."
+    },
+    {
+      campo: "Atestado de Liquidação e IMR",
+      valorOuConteudo: "Atestado SEI 1073756 / IMR Nota 97",
+      documentoOrigem: "SEI nº 1073756 assinado pelo fiscal Gabriel Cruz em 16/09/2026 (Fl. 41)",
+      categoria: "Atestes e Certidões",
+      impactoNoParecer: "Atendimento formal e material ao Art. 63 da Lei nº 4.320/64 e termos do Contrato 52/2025."
+    },
+    {
+      campo: "Pagamento Líquido à Contratada",
+      valorOuConteudo: "R$ 8.846,67 (2026OB005031)",
+      documentoOrigem: "SIAFI 2026OB005031 emitida em 17/09/2026 (Fl. 57)",
+      categoria: "Valores",
+      impactoNoParecer: "Ordem Bancária com crédito direto na conta do Banco Sicredi da empresa UNIR Locações."
+    },
+    {
+      campo: "Depósito em Conta Vinculada",
+      valorOuConteudo: "R$ 2.269,12 (2026OB005032)",
+      documentoOrigem: "SIAFI 2026OB005032 no Banco do Brasil Ag. 3500 c/c 128311573 (Fl. 58)",
+      categoria: "Valores",
+      impactoNoParecer: "Retenção de garantia das verbas rescisórias trabalhistas (férias e 13º) em conformidade com a IN SEGES/MP nº 05/2017."
+    },
+    {
+      campo: "Recolhimento do ISSQN Municipal",
+      valorOuConteudo: "R$ 751,57 (2026OB005030 / 2026LF000909)",
+      documentoOrigem: "SIAFI 2026OB005030 para Prefeitura de Poço Redondo (Fl. 56)",
+      categoria: "Valores",
+      impactoNoParecer: "Quitação regular da retenção tributária municipal na fonte."
+    },
+    {
+      campo: "Programação de Tributos Federais",
+      valorOuConteudo: "R$ 3.164,04 agendados no GERCOMP",
+      documentoOrigem: "SIAFI 2026NP001637 e Consulta GERCOMP (Fls. 48 e 55)",
+      categoria: "Normativo / Autorizativo",
+      impactoNoParecer: "Compromisso formalizado para compensação dos DARFs de IRRF, PIS, COFINS e CSLL."
+    },
+    {
+      campo: "Regularidade Trabalhista e Previdenciária",
+      valorOuConteudo: "SICAF válido até 2027 / FGTS regular / CNDT válida",
+      documentoOrigem: "SICAF (Fl. 52), CRF FGTS (Fl. 28) e CNDT (Fl. 26)",
+      categoria: "Atestes e Certidões",
+      impactoNoParecer: "Comprovação plena da regularidade fiscal e trabalhista exigida pelo art. 68 da Lei 14.133/21."
+    }
+  ],
+  documentosSiafiAnalisados: [
+    {
+      tipo: "NE",
+      numero: "2026NE000035",
+      data: "13/01/2026",
+      valor: 16156.63,
+      favorecido: "15.454.009/0001-40 - UNIR LOCACOES E SERVICOS LTDA",
+      eventos: ["401201 - Empenho de Despesa Orçamentária"],
+      classificacaoOuContas: "33903702 - Limpeza e Conservação / UG 158134 / UGR 154626",
+      descricaoOuObservacao: "ATENDER DESPESA COM PRESTACAO DE SERVICOS CONTINUADOS DE LIMPEZA E CONSERVACAO PREDIAL DO IFS CAMPUS POCO REDONDO, CONFORME CONTRATO 52/2025 E PROCESSO SEI 23856.000189/2026-12.",
+      signatarios: ["Ordenador de Despesas IFS"],
+      status: "REGULAR",
+      parecerTecnico: "Empenho prévio emitido tempestivamente no início do exercício financeiro com saldo orçamentário suficiente."
+    },
+    {
+      tipo: "NS",
+      numero: "2026NS010548",
+      data: "16/09/2026",
+      valor: 15031.40,
+      favorecido: "15.454.009/0001-40 - UNIR LOCACOES E SERVICOS LTDA",
+      eventos: ["401002 - Liquidação da Despesa", "521214 - Apropriação de Serviços Terceiros", "521494 - Retenção Previdenciária", "521472 - Retenção ISSQN", "521010 - Depósito Conta Vinculada"],
+      classificacaoOuContas: "33903702 / 214121401 (Fornecedores a Pagar) / 218810100 (Obrigações Fiscais e Retenções)",
+      descricaoOuObservacao: "REGISTRO CONTABIL DA DESPESA REF. AO SERVICO DE LIMPEZA, ASSEIO E CONSERVACAO PARA O IFS/POCO REDONDO NO MES 08/2026, NFSE 2026001316 NO VALOR DE R$ 15.031,40, CONTRATO 52/2025, UNIR LOCACOES E SERVICOS LTDA - CNPJ 15.454.009/0001-40 E PROC. 23856.000189/2026-12.",
+      signatarios: ["Jean Claude Sauthier (Contador IFS)"],
+      status: "REGULAR",
+      parecerTecnico: "Liquidação efetuada com rigor contábil amparada no Atestado SEI nº 1073756 e NFS-e nº 2026001316."
+    },
+    {
+      tipo: "NP",
+      numero: "2026NP001637",
+      data: "16/09/2026",
+      valor: 15031.40,
+      favorecido: "15.454.009/0001-40 - UNIR LOCACOES E SERVICOS LTDA",
+      eventos: ["401004 - Programação de Pagamento de Título de Crédito"],
+      classificacaoOuContas: "214121401 / Vencimento: 30/09/2026",
+      descricaoOuObservacao: "TITULO DE CREDITO PROGRAMADO NO SIAFI PARA LIQUIDACAO DO SALDO LIQUIDO E RETENCOES DA NFS-E 2026001316.",
+      signatarios: ["Setor de Tesouraria e Finanças"],
+      status: "REGULAR",
+      parecerTecnico: "Nota de Pagamento emitida regularmente com agendamento no GERCOMP para as retenções tributárias federais."
+    },
+    {
+      tipo: "OB",
+      numero: "2026OB005030",
+      data: "17/09/2026",
+      valor: 751.57,
+      favorecido: "PREFEITURA MUNICIPAL DE POÇO REDONDO / BANCO DO BRASIL",
+      eventos: ["401003 - Pagamento de Retenção Tributária Municipal", "561602 - Saída Financeira"],
+      classificacaoOuContas: "218810100 / Lista Fatura 2026LF000909",
+      descricaoOuObservacao: "RECOLHIMENTO DE ISSQN RETIDO DA NFS-E 2026001316 - UNIR LOCACOES, CONTRATO 52/2025, COMPETENCIA 08/2026.",
+      signatarios: ["Ordenador de Despesa", "Gestor Financeiro"],
+      status: "REGULAR",
+      parecerTecnico: "Ordem Bancária com acate pelo Banco Central efetuando o repasse tempestivo do ISS municipal retido."
+    },
+    {
+      tipo: "OB",
+      numero: "2026OB005031",
+      data: "17/09/2026",
+      valor: 8846.67,
+      favorecido: "15.454.009/0001-40 - UNIR LOCACOES E SERVICOS LTDA",
+      eventos: ["401003 - Pagamento de Despesa Liquidada", "531388 - Baixa de Obrigação Fornecedor"],
+      classificacaoOuContas: "Conta Única do Tesouro / Banco Sicredi (Ag. 2102, C/C 55336)",
+      descricaoOuObservacao: "PAGAMENTO LIQUIDO DA FATURA NFS-E 2026001316 REF. SERVICOS DE LIMPEZA E CONSERVACAO PREDIAL POCO REDONDO - AGOSTO/2026.",
+      signatarios: ["Ordenador de Despesas IFS", "Gestor Financeiro"],
+      status: "REGULAR",
+      parecerTecnico: "Ordem Bancária de liquidação com quitação bancária efetivada em favor da contratada."
+    },
+    {
+      tipo: "OB",
+      numero: "2026OB005032",
+      data: "17/09/2026",
+      valor: 2269.12,
+      favorecido: "BANCO DO BRASIL S.A. - CONTA VINCULADA BLOQUEADA PARA MOVIMENTAÇÃO",
+      eventos: ["401003 - Depósito de Retenção Trabalhista em Garantia", "561602 - Saída Financeira"],
+      classificacaoOuContas: "Agência 3500 / Conta Vinculada nº 3500128311573",
+      descricaoOuObservacao: "DEPOSITO EM CONTA VINCULADA DO IFS REF. ENCARGOS TRABALHISTAS RESCISORIOS (31,82% DA MO) - FATURA 2026001316, UNIR LOCACOES.",
+      signatarios: ["Ordenador de Despesas IFS", "Gestor Financeiro"],
+      status: "REGULAR",
+      parecerTecnico: "Depósito em conta corrente vinculada bloqueada para movimentação, resguardando os direitos sociais dos trabalhadores."
+    }
+  ],
+  documentosProcessuaisDetalhados: [
+    {
+      tipo: "NFS-e",
+      numeroSei: "NFS-e 2026001316",
+      folhaOuPagina: "Fl. 1",
+      descricao: "Nota Fiscal de Serviços Eletrônica emitida pela Prefeitura de Lagarto/SE em 14/09/2026, no valor de R$ 15.031,40.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Prefeitura Municipal de Lagarto / Emitida por UNIR Locações"
+    },
+    {
+      tipo: "Atestado de Liquidação",
+      numeroSei: "SEI 1073756",
+      folhaOuPagina: "Fl. 41",
+      descricao: "Atestado formal assinado eletronicamente pelo Fiscal de Contrato Gabriel Cruz em 16/09/2026.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Gabriel Cruz - Fiscal Técnico do Contrato nº 52/2025"
+    },
+    {
+      tipo: "IMR e Relatório Técnico",
+      numeroSei: "SEI 1073751 e 1073725",
+      folhaOuPagina: "Fls. 33 e 38-40",
+      descricao: "Instrumento de Medição de Resultado com nota 97 (Conceito BOM) e Relatório Mensal de Acompanhamento.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Comissão de Fiscalização / Fiscal Técnico"
+    },
+    {
+      tipo: "Folha e Comprovantes Salariais",
+      numeroSei: "Processo SEI Fls. 5-21",
+      folhaOuPagina: "Fls. 5 a 21",
+      descricao: "Espelhos de ponto, contracheques e comprovantes SISBB de quitação salarial e vale-alimentação dos 4 funcionários.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Setor Financeiro / Fiscalização Trabalhista"
+    },
+    {
+      tipo: "Nota de Empenho",
+      numeroSei: "2026NE000035",
+      folhaOuPagina: "Fls. 42-43",
+      descricao: "Nota de Empenho SIAFI no valor de R$ 16.156,63 na dotação 33903702, UGR 154626.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Coordenação de Execução Orçamentária - IFS"
+    },
+    {
+      tipo: "Nota de Sistema",
+      numeroSei: "2026NS010548",
+      folhaOuPagina: "Fls. 48-50",
+      descricao: "Nota de Lançamento de Sistema no SIAFI apropriando a fatura de R$ 15.031,40 e registrando as deduções legais.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Coordenação de Contabilidade e Finanças - IFS"
+    },
+    {
+      tipo: "Ordens Bancárias",
+      numeroSei: "2026OB005030 / 005031 / 005032",
+      folhaOuPagina: "Fls. 56-58",
+      descricao: "Ordens Bancárias SIAFI quitando o líquido à contratada (R$ 8.846,67), ISSQN (R$ 751,57) e Conta Vinculada (R$ 2.269,12).",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Ordenador de Despesas / Tesouraria do IFS"
+    },
+    {
+      tipo: "Certidões de Regularidade",
+      numeroSei: "SICAF / CND Federal / CNDT / FGTS",
+      folhaOuPagina: "Fls. 22-30 e 52",
+      descricao: "Certidões negativas fiscais, trabalhistas e previdenciárias acompanhadas da guia de FGTS Digital paga de R$ 21.298,65.",
+      statusConformidade: "CONFORME",
+      signatarioOuSetor: "Fiscal Administrativo / Consulta SICAF"
+    }
+  ],
+  analiseDescricaoContabil: {
+    textoObservacao: "REGISTRO CONTABIL DA DESPESA REF. AO SERVICO DE LIMPEZA, ASSEIO E CONSERVACAO PARA O IFS/POCO REDONDO NO MES 08/2026, NFSE 2026001316 NO VALOR DE R$ 15.031,40, CONTRATO 52/2025, UNIR LOCACOES E SERVICOS LTDA - CNPJ 15.454.009/0001-40 E PROC. 23856.000189/2026-12.",
+    qualidadeRedacao: "Excelente",
+    avaliacaoCriteriosa: "O campo OBSERVAÇÃO da Nota de Lançamento de Sistema nº 2026NS010548 e dos demais atos contábeis no SIAFI cumpre exemplarmente os ditames da Macrofunção 020314. O texto descreve com total precisão: a) A natureza do serviço (limpeza, asseio e conservação predial); b) O campus atendido (Poço Redondo); c) O mês de competência (Agosto/2026); d) O número da NFS-e (2026001316) e valor exato; e) O número do Contrato (52/2025); f) A razão social e CNPJ da empresa; g) A vinculação inequívoca ao Processo SEI nº 23856.000189/2026-12.",
+    elementosIdentificados: [
+      "Objeto bem delimitado: Serviço de limpeza, asseio e conservação predial",
+      "Campus de destino: IFS Campus Poço Redondo",
+      "Mês de competência: Agosto/2026",
+      "Documento fiscal de suporte: NFS-e 2026001316 no valor de R$ 15.031,40",
+      "Vínculo contratual: Contrato nº 52/2025",
+      "Fornecedor: UNIR LOCACOES E SERVICOS LTDA (CNPJ 15.454.009/0001-40)",
+      "Processo SEI vinculado: 23856.000189/2026-12"
+    ],
+    apontamentosOuGralhas: []
+  },
+  parecerTecnicoEstruturado: {
+    identificacao: {
+      processoSei: "23856.000189/2026-12",
+      ugGestao: "158134 / 26423 (IFS - Campus Poço Redondo)",
+      unidadeDemandante: "Direção Geral do IFS Campus Poço Redondo",
+      favorecido: "UNIR LOCACOES E SERVICOS LTDA",
+      cnpjFavorecido: "15.454.009/0001-40",
+      enquadramentoLegal: "Lei nº 14.133/2021, Lei nº 4.320/1964, IN SEGES/MP nº 05/2017 e Macrofunção SIAFI 020314",
+      valorTotalProcesso: "R$ 15.031,40 (Líquido: R$ 8.846,67 | Retenções Tributárias e Garantias: R$ 6.184,73)"
+    },
+    resumoObjeto: "Auditoria contábil e de conformidade documental dos atos de liquidação e pagamento referentes à prestação dos serviços contínuos de limpeza, asseio e conservação predial, com dedicação exclusiva de mão de obra (4 postos), nas dependências do IFS Campus Poço Redondo, correspondente à competência de Agosto/2026, amparado pelo Contrato nº 52/2025.",
+    analiseInstrucaoProcessual: "O processo administrativo SEI nº 23856.000189/2026-12 encontra-se perfeitamente autuado e instruído. Constam nos autos a NFS-e nº 2026001316 (Fl. 1), os cartões de ponto, recibos salariais e comprovantes SISBB de pagamento aos 4 funcionários terceirizados (Fls. 5-21), atestado de regularidade perante o SICAF e certidões negativas válidas (Fls. 22-30), Relatório de Acompanhamento Mensal SEI nº 1073725 (Fl. 33), Instrumento de Medição de Resultado - IMR com nota 97 (SEI 1073751, Fls. 38-40), Atestado de Liquidação assinado pelo fiscal de contrato Gabriel Cruz (SEI 1073756, Fl. 41), Nota de Empenho 2026NE000035 (Fl. 42), Nota de Sistema 2026NS010548 (Fl. 48), Nota de Pagamento 2026NP001637 (Fl. 48 e 55), Ordens Bancárias 2026OB005030, 2026OB005031 e 2026OB005032 (Fls. 56-58) e Despacho de Encaminhamento da Coordenadora Tereza Freire (SEI 1076687, Fl. 60).",
+    analiseExecucaoOrcamentariaFinanceira: "A despesa foi empenhada previamente através da Nota de Empenho 2026NE000035 emitida em 13/01/2026, na Natureza de Despesa 33903702 (Locação de Mão de Obra / Limpeza e Conservação), UG 158134 e UGR 154626 (Campus Poço Redondo), em total observância ao art. 60 da Lei nº 4.320/64. A execução financeira obedeceu ao encadeamento dos estágios da despesa pública, culminando com o pagamento líquido à empresa e o repasse das retenções.",
+    analiseDocumentoHabilELiquidacao: "A liquidação da despesa cumpriu integralmente os arts. 62 e 63 da Lei nº 4.320/64. O documento hábil é a NFS-e nº 2026001316 no valor bruto de R$ 15.031,40, lastreada no Atestado de Liquidação firmado pelo fiscal do contrato Gabriel Cruz, no Relatório de Fiscalização e no IMR (nota 97). Restou devidamente comprovada a efetiva prestação dos serviços e o cumprimento das obrigações salariais dos 4 funcionários.",
+    analiseTributariaERetencoes: "A segregação dos tributos e garantias rescisórias foi realizada de maneira exemplar: o ISSQN de 5% no valor de R$ 751,57 foi retido e pago ao Município de Poço Redondo via 2026OB005030 / 2026LF000909; a retenção para a Conta Vinculada de férias, 13º e rescisões no valor de R$ 2.269,12 foi depositada no Banco do Brasil via 2026OB005032; os tributos federais (IRRF, PIS, COFINS e CSLL) no valor de R$ 3.164,04 foram agendados no GERCOMP via 2026NP001637 para recolhimento em DARF.",
+    analiseDocumentosSiafi: "Foram analisados todos os atos emitidos no SIAFI: Nota de Empenho 2026NE000035, Nota de Sistema 2026NS010548 (emitida por Jean Claude Sauthier), Nota de Pagamento 2026NP001637, Lista de Fatura 2026LF000909 e as Ordens Bancárias 2026OB005030, 2026OB005031 e 2026OB005032. Todos os registros apresentam perfeita conformidade de valores, eventos e cronologia contábil.",
+    auditoriaSiafiProfunda: {
+      estagioOrcamentario: "Nota de Empenho prévia 2026NE000035 emitida em 13/01/2026 na natureza 33903702, UGR 154626, com saldo orçamentário suficiente.",
+      estagioLiquidacao: "Liquidação efetuada na 2026NS010548 pelo valor bruto de R$ 15.031,40 com apropriação exata dos 4 postos de limpeza e retenções legais.",
+      estagioPagamento: "Três Ordens Bancárias emitidas e acatadas pelo Banco Central: 2026OB005031 (Líquido à empresa R$ 8.846,67), 2026OB005030 (ISSQN Poço Redondo R$ 751,57) e 2026OB005032 (Conta Vinculada BB R$ 2.269,12).",
+      conformidadeTributaria: "Retenção e quitação regular de ISSQN de 5% (R$ 751,57), retenção e depósito de garantia em Conta Vinculada (R$ 2.269,12) e agendamento de tributos federais no GERCOMP (R$ 3.164,04).",
+      fidedignidadeEscritaContabil: "Campo OBSERVAÇÃO da NS 2026NS010548 descreve com total precisão o serviço, campus Poço Redondo, mês 08/2026, contrato 52/2025, NFS-e 2026001316 e processo SEI 23856.000189/2026-12.",
+      segregacaoFuncoes: "Segregação rigorosa observada entre o Fiscal Técnico do Contrato (Gabriel Cruz), o Contador emissor dos atos no SIAFI (Jean Claude Sauthier), o Ordenador de Despesas e os Gestores Financeiros.",
+      totalDocumentosSiafiAuditados: 7,
+      documentosSiafiApurados: [
+        "2026NE000035", "2026NS010548", "2026NP001637", "2026LF000909",
+        "2026OB005030", "2026OB005031", "2026OB005032"
+      ]
+    },
+    analiseEscritaObservacoesContabeis: "As descrições inseridas nos campos OBSERVAÇÃO de todos os atos contábeis no SIAFI cumprem rigorosamente os padrões da Macrofunção SIAFI 020314, proporcionando transparência e rastreabilidade fidedigna aos autos do processo SEI nº 23856.000189/2026-12.",
+    normasAplicaveis: [
+      {
+        norma: "Lei nº 14.133/2021 (Nova Lei de Licitações e Contratos)",
+        esferaOuOrgao: "Federal / Licitações e Contratos",
+        aplicacaoNoProcesso: "Execução regular do Contrato nº 52/2025 e verificação da manutenção das condições de habilitação da contratada.",
+        fundamentacaoLegal: "Cumprimento tempestivo dos serviços e apresentação de certidões negativas regulares.",
+        statusAtendimento: "CONFORME"
+      },
+      {
+        norma: "Lei nº 4.320/1964, Arts. 58 a 64",
+        esferaOuOrgao: "Federal / Normas Gerais de Direito Financeiro",
+        aplicacaoNoProcesso: "Encadeamento dos estágios da despesa pública: Empenho (NE 35), Liquidação (NS 10548) e Pagamento (OBs 5030/5031/5032).",
+        fundamentacaoLegal: "Ateste formal do fiscal e documento fiscal hábil de comprovação da despesa.",
+        statusAtendimento: "CONFORME"
+      },
+      {
+        norma: "Macrofunção SIAFI 020314 e Portaria IFS nº 1.633/2026",
+        esferaOuOrgao: "Tesouro Nacional / STN e IFS",
+        aplicacaoNoProcesso: "Conformidade dos Registros de Gestão, exame documental tempestivo e fidedignidade contábil.",
+        fundamentacaoLegal: "Todos os 7 documentos SIAFI emitidos na UG 158134 encontram-se regulares e sem ressalvas.",
+        statusAtendimento: "CONFORME"
+      },
+      {
+        norma: "Instrução Normativa SEGES/MP nº 05/2017 (Conta Vinculada)",
+        esferaOuOrgao: "Federal / Ministério do Planejamento",
+        aplicacaoNoProcesso: "Retenção e depósito de garantias trabalhistas (31,82%) na conta vinculada bloqueada para movimentação no Banco do Brasil.",
+        fundamentacaoLegal: "Preservação dos direitos rescisórios dos 4 trabalhadores terceirizados alocados no Campus Poço Redondo.",
+        statusAtendimento: "CONFORME"
+      },
+      {
+        norma: "Código Tributário Municipal de Poço Redondo / ISSQN",
+        esferaOuOrgao: "Municipal / Fazenda de Poço Redondo",
+        aplicacaoNoProcesso: "Retenção do ISSQN de 5% sobre a base de cálculo da NFS-e e recolhimento via 2026OB005030.",
+        fundamentacaoLegal: "Recolhimento aos cofres municipais tempestivamente através de Lista de Fatura do SIAFI.",
+        statusAtendimento: "CONFORME"
+      }
+    ],
+    inconsistenciasDetectadas: [
+      {
+        item: "Auditoria Geral do Processo e Documentos",
+        tipoInconsistencia: "SEM INCONSISTÊNCIA",
+        descricao: "Inexistência de qualquer vício, pendência ou inconsistência material, formal, orçamentária ou fiscal no processo.",
+        fundamentacaoLegal: "Leis nº 4.320/64, 14.133/21, Macrofunção SIAFI 020314 e Contrato 52/2025.",
+        impactoRisco: "NENHUM / CONFORME",
+        acaoSaneadoraOuJustificativa: "Processo plenamente regular e instruído para registro de conformidade e posterior arquivamento."
+      }
+    ],
+    conclusaoEEncaminhamento: "Auditado o processo administrativo SEI nº 23856.000189/2026-12 referente à prestação de serviços de limpeza e conservação predial no IFS Campus Poço Redondo (competência Agosto/2026), conclui-se pela sua integral REGULARIDADE. Os serviços foram regularmente executados e atestados com nota 97 no IMR, a Nota de Empenho 2026NE000035 possui saldo hábil, os pagamentos aos 4 funcionários foram comprovados, o líquido à contratada (R$ 8.846,67) e as retenções de ISSQN (R$ 751,57) e Conta Vinculada (R$ 2.269,12) foram devidamente emitidas no SIAFI. Parecer favorável ao registro de conformidade de gestão diária sob a modalidade SEM OCORRÊNCIA e subsequente arquivamento.",
+    registroSugerido: "SEM OCORRÊNCIA"
+  },
+  parecerConclusivo: "Processo regularmente instruído. Conforme os arts. 62 e 63 da Lei nº 4.320/1964, a Instrução Normativa RFB nº 1.234/2012, a Macrofunção SIAFI 020314 e os termos do Contrato nº 52/2025, a prestação do serviço continuado de limpeza e conservação predial referente ao mês de agosto/2026 encontra-se plenamente comprovada pela NFS-e nº 2026001316, Atestado de Liquidação SEI 1073756, IMR (97 pontos) e comprovação das obrigações trabalhistas e previdenciárias dos 4 terceirizados. Todos os documentos obrigatórios do SIAFI (NE 2026NE000035, NS 2026NS010548, NP 2026NP001637 e OBs 2026OB005030, 2026OB005031 e 2026OB005032) foram examinados e encontram-se em total regularidade contábil e fiscal. A retenção do ISSQN (R$ 751,57) e o depósito da conta vinculada (R$ 2.269,12) foram devidamente processados. Parecer técnico: SEM OCORRÊNCIA, apto para arquivamento regular.",
+  sugestaoConformista: "Registrar no SIAFI a Conformidade Diária dos Registros de Gestão com o status SEM OCORRÊNCIA para a Unidade Gestora 158134, validando os atos de gestão da despesa e procedendo ao arquivamento dos autos conforme Despacho SEI 1076687.",
+  confiancaAnalise: "Motor Especialista Normativo IFS (Auditado Rigoroso)"
+};
+

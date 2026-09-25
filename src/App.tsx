@@ -22,12 +22,15 @@ import {
   Copy,
   Check,
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Download,
+  Printer
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { DocType, Analysis, CHECKLIST_BY_TYPE, RESTRICOES, DOC_GUIDES, TAX_RULES, TaxRule, ProcessAuditResult } from './types';
 import { ProcessPdfAnalyzer } from './components/ProcessPdfAnalyzer';
 import { HistoryStatistics } from './components/HistoryStatistics';
+import { ExportPdfModal } from './components/ExportPdfModal';
 
 interface TaxCalculatorProps {
   initialAudit?: ProcessAuditResult | null;
@@ -664,6 +667,8 @@ export default function App() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAnalysisForExport, setSelectedAnalysisForExport] = useState<Analysis | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Sincroniza a classe 'dark' no html root para Tailwind v4
   useEffect(() => {
@@ -1163,17 +1168,43 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-2.5">
                     <button 
+                      type="button"
                       onClick={resetForm}
-                      className="px-4 py-2.5 bg-gray-100 dark:bg-white/10 text-black/60 dark:text-white/70 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
+                      className="px-3.5 py-2.5 bg-gray-100 dark:bg-white/10 text-black/60 dark:text-white/70 rounded-xl font-bold uppercase tracking-widest text-[10px] hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
                     >
                       Limpar
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentFormAnalysis: Analysis = {
+                          id: 'form-' + Date.now(),
+                          timestamp: new Date().toISOString(),
+                          conformista: conformista || 'Conformista de Registro',
+                          processo: processo || 'Processo em análise',
+                          numeroDoc: numeroDoc || 'S/N',
+                          tipoDoc,
+                          resultado,
+                          checklist,
+                          restricoes: selectedRestricoes,
+                          observacao: observacao || 'Processo avaliado com amparo na Macrofunção SIAFI 020314.'
+                        };
+                        setSelectedAnalysisForExport(currentFormAnalysis);
+                        setIsExportModalOpen(true);
+                      }}
+                      className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-[#00FF00] dark:bg-[#00FF00]/10 dark:hover:bg-[#00FF00]/20 border border-emerald-500/20 dark:border-[#00FF00]/30 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                      title="Gerar e pré-visualizar relatório PDF da análise preenchida"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Exportar PDF</span>
+                    </button>
                     <button 
+                      type="button"
                       onClick={handleSubmit}
                       disabled={loading}
-                      className="flex-1 bg-[#141414] dark:bg-[#00FF00] text-white dark:text-black py-2.5 rounded-xl font-bold uppercase tracking-widest text-[11px] hover:bg-black dark:hover:bg-[#00CC00] transition-all flex items-center justify-center gap-2 group shadow-lg shadow-black/10"
+                      className="flex-1 min-w-[180px] bg-[#141414] dark:bg-[#00FF00] text-white dark:text-black py-2.5 rounded-xl font-bold uppercase tracking-widest text-[11px] hover:bg-black dark:hover:bg-[#00CC00] transition-all flex items-center justify-center gap-2 group shadow-lg shadow-black/10 active:scale-[0.98]"
                     >
                       {loading ? "Processando..." : (
                         <>
@@ -1277,12 +1308,13 @@ export default function App() {
                       <th className="p-4 text-[10px] uppercase font-bold text-black/40 dark:text-white/40 tracking-widest">Resultado</th>
                       <th className="p-4 text-[10px] uppercase font-bold text-black/40 dark:text-white/40 tracking-widest">Ocorrências</th>
                       <th className="p-4 text-[10px] uppercase font-bold text-black/40 dark:text-white/40 tracking-widest">Conformista</th>
+                      <th className="p-4 text-[10px] uppercase font-bold text-black/40 dark:text-white/40 tracking-widest text-center">Exportar PDF</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAnalyses.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-black/40 dark:text-white/40 italic">
+                        <td colSpan={7} className="p-12 text-center text-black/40 dark:text-white/40 italic">
                           {analyses.length === 0 
                             ? "Nenhuma análise registrada ainda." 
                             : `Nenhum processo encontrado para a busca "${searchTerm}".`}
@@ -1290,7 +1322,14 @@ export default function App() {
                       </tr>
                     ) : (
                       filteredAnalyses.map(item => (
-                        <tr key={item.id} className="border-t border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group">
+                        <tr 
+                          key={item.id} 
+                          onClick={() => {
+                            setSelectedAnalysisForExport(item);
+                            setIsExportModalOpen(true);
+                          }}
+                          className="border-t border-black/5 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
+                        >
                           <td className="p-4">
                             <div className="text-sm font-mono text-black dark:text-white">{new Date(item.timestamp).toLocaleDateString()}</div>
                             <div className="text-[10px] text-black/30 dark:text-white/40">{new Date(item.timestamp).toLocaleTimeString()}</div>
@@ -1316,6 +1355,21 @@ export default function App() {
                             )}
                           </td>
                           <td className="p-4 text-sm text-black/60 dark:text-white/70">{item.conformista}</td>
+                          <td className="p-4 text-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedAnalysisForExport(item);
+                                setIsExportModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-[#00FF00] dark:bg-[#00FF00]/10 dark:hover:bg-[#00FF00]/20 border border-emerald-500/20 dark:border-[#00FF00]/30 rounded-xl text-xs font-bold transition-all inline-flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
+                              title="Exportar Relatório PDF individual deste processo"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>PDF</span>
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -1360,6 +1414,17 @@ export default function App() {
                           <p className="text-[11px] font-medium text-black dark:text-white truncate">{(item.restricoes && item.restricoes.length > 0) ? item.restricoes.length : 0}</p>
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedAnalysisForExport(item);
+                          setIsExportModalOpen(true);
+                        }}
+                        className="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Exportar Relatório PDF
+                      </button>
                     </div>
                   ))
                 )}
@@ -1368,6 +1433,14 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Modal de Exportação / Pré-visualização de Relatório PDF */}
+      <ExportPdfModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        data={selectedAnalysisForExport}
+        conformistaFallback={conformista}
+      />
 
       {/* Footer Info */}
       <footer className="max-w-5xl mx-auto p-12 text-center space-y-6">

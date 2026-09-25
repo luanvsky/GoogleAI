@@ -643,6 +643,13 @@ export interface ConfrontoCalculadora {
   restricaoAplicada?: string;
 }
 
+export interface AnaliseDocumentalCompiladaItem {
+  documentoSeiRegistros: string; // Ex: Despacho 1035940 / Planilha 1036396 / Escrituração 1048733
+  resultado: "SEM RESTRIÇÃO" | "COM RESTRIÇÃO";
+  ocorrenciaJustificativa: string;
+  observacoes: string;
+}
+
 export interface ProcessAuditResult {
   processo: string;
   numeroDoc: string;
@@ -658,12 +665,15 @@ export interface ProcessAuditResult {
     detalheRetencoes?: string;
   };
   resultado: "SEM OCORRÊNCIA" | "COM OCORRÊNCIA";
+  conclusaoMacrofuncao?: "Sem Restrição" | "Com Restrição" | "Pendente de Instrução";
   restricoesDetectadas: ProcessRestriction[];
   checklistAvaliado: ProcessChecklistItem[];
   documentosIdentificados: string[];
   evidenciasEncontradas?: ProcessEvidence[];
   documentosSiafiAnalisados?: SiafiDocumentAudit[];
   documentosProcessuaisDetalhados?: ProcessDocumentDetail[];
+  analiseDocumentalCompilada?: AnaliseDocumentalCompiladaItem[];
+  modeloRespostaSei?: string;
   parecerTecnicoEstruturado?: ParecerTecnicoConformista;
   parecerConclusivo: string;
   sugestaoConformista: string;

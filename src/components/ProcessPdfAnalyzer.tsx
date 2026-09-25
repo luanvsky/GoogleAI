@@ -25,7 +25,9 @@ import {
   ScrollText,
   Briefcase,
   ShieldCheck,
-  Calculator
+  Calculator,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { DocType, ProcessAuditResult, ProcessRestriction } from '../types';
 import { SiafiDocumentsTable } from './SiafiDocumentsTable';
@@ -35,6 +37,9 @@ import { ProcessEvidenceTable } from './ProcessEvidenceTable';
 import { DEMO_TAXAS_CREA, DEMO_DIVERGENCIA_CALCULO, DEMO_MULHERES_MIL_JULHO2026, DEMO_UNIR_POCO_REDONDO } from '../data/demoScenarios';
 import { ConfrontoCalculadoraTributaria } from './ConfrontoCalculadoraTributaria';
 import { GuiaDocumentosTable } from './GuiaDocumentosTable';
+import { ExportPdfModal } from './ExportPdfModal';
+import { exportToPdfReport } from '../utils/pdfExport';
+import { buildSeiCompiledAnalysis } from '../utils/seiModelHelper';
 
 interface ProcessPdfAnalyzerProps {
   conformistaPadrao: string;
@@ -65,15 +70,19 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [fileBase64, setFileBase64] = useState<string>('');
   const [conformista, setConformista] = useState<string>(conformistaPadrao || '');
   const [docTypeHint, setDocTypeHint] = useState<string>('auto');
+  const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
+  const [pastedText, setPastedText] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStep, setAnalysisStep] = useState<string>('');
   const [auditResult, setAuditResult] = useState<ProcessAuditResult | null>(null);
-  const [activeDetailTab, setActiveDetailTab] = useState<'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'evidencias_encontradas' | 'calculadora_confronto' | 'visao_geral' | 'guia_documentos'>('documentos_siafi');
+  const [activeDetailTab, setActiveDetailTab] = useState<'despacho_sei' | 'documentos_siafi' | 'documentos_sei' | 'parecer_tecnico' | 'escrita_contabil' | 'evidencias_encontradas' | 'calculadora_confronto' | 'visao_geral' | 'guia_documentos'>('despacho_sei');
   const [isContingencyMode, setIsContingencyMode] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedSei, setCopiedSei] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [dragActive, setDragActive] = useState<boolean>(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sincroniza o resultado da auditoria com o componente pai / Calculadora Tributária
@@ -131,10 +140,31 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
     }
   };
 
+  // Limpar Contexto e Iniciar Nova Análise (Reset Total de Estado e Histórico de Análise)
+  const handleClearContext = () => {
+    setFile(null);
+    setFileBase64('');
+    setPastedText('');
+    setAuditResult(null);
+    setErrorMessage('');
+    setAnalysisStep('');
+    setIsAnalyzing(false);
+    setIsSaved(false);
+    setIsContingencyMode(false);
+    setCopied(false);
+    setCopiedSei(false);
+    setActiveDetailTab('despacho_sei');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // Notifica componente pai para limpar qualquer referência anterior
+    onAuditChange?.(null as any);
+  };
+
   // Disparar análise com a IA
   const runAnalysis = async () => {
-    if (!fileBase64) {
-      setErrorMessage('Nenhum arquivo PDF carregado para análise.');
+    if (!fileBase64 && !pastedText.trim()) {
+      setErrorMessage('Por favor, carregue um arquivo PDF ou cole o texto das peças do processo para iniciar a análise.');
       return;
     }
 
@@ -144,11 +174,11 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
 
     try {
       const steps = [
-        'Lendo páginas e identificando documentos no PDF...',
-        'Auditando notas fiscais, termos de recebimento e atestes...',
+        'Lendo páginas e identificando documentos do processo anexo...',
+        'Auditando notas fiscais, termos de recebimento, autorizações e atestes...',
         'Conferindo retenções federais (IN RFB 1.234/2012)...',
         'Verificando conformidade com a Macrofunção SIAFI 020314...',
-        'Sinalizando ocorrências e consolidando parecer técnico...'
+        'Sinalizando ocorrências e consolidando despacho oficial SEI...'
       ];
 
       let stepIndex = 0;
@@ -161,8 +191,9 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pdfBase64: fileBase64,
-          fileName: file?.name || 'processo.pdf',
+          pdfBase64: fileBase64 || undefined,
+          textContent: pastedText.trim() || undefined,
+          fileName: file?.name || (pastedText.trim() ? 'processo_texto_colado.txt' : 'processo.pdf'),
           docTypeHint: docTypeHint === 'auto' ? undefined : docTypeHint,
           conformistaHint: conformista || undefined
         })
@@ -754,6 +785,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <button
               type="button"
+              onClick={handleClearContext}
+              className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-400/50 text-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98]"
+              title="Limpar contexto e histórico antes de processar um novo arquivo PDF (garante zero dados residuais)"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-red-300" /> Iniciar Nova Análise
+            </button>
+            <button
+              type="button"
               onClick={() => loadDemoCase('unir_poco_redondo')}
               className="px-3 py-1.5 bg-[#00FF00]/20 hover:bg-[#00FF00]/30 border border-[#00FF00]/40 text-[#00FF00] rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.98]"
               title="Testar Processo Anexado: UNIR Locações - Poço Redondo (Sem Ocorrência)"
@@ -796,76 +835,148 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
         {/* Left: Upload Box & Parameters */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/5 dark:border-white/10 space-y-4 transition-colors">
-            <h3 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
-              <FileUp className="w-4 h-4 text-black dark:text-white" />
-              Carregar Processo (PDF)
-            </h3>
-
-            {/* Drag and Drop Zone */}
-            <div
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
-                dragActive 
-                  ? 'border-[#00FF00] bg-[#00FF00]/5 scale-[0.99]' 
-                  : file 
-                  ? 'border-black/20 dark:border-white/20 bg-gray-50 dark:bg-[#202326]' 
-                  : 'border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 hover:bg-gray-50/50 dark:hover:bg-white/5'
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    handleFileChange(e.target.files[0]);
-                  }
-                }}
-                className="hidden"
-              />
-
-              {file ? (
-                <div className="space-y-2">
-                  <div className="w-12 h-12 bg-black dark:bg-[#0C0D0E] text-[#00FF00] rounded-2xl flex items-center justify-center mx-auto shadow-md border border-white/10">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div className="font-bold text-xs text-black dark:text-white truncate max-w-xs mx-auto">
-                    {file.name}
-                  </div>
-                  <div className="text-[10px] text-black/50 dark:text-white/50 font-mono">
-                    {(file.size / (1024 * 1024)).toFixed(2)} MB • Pronto para auditoria
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                      setFileBase64('');
-                      setAuditResult(null);
-                    }}
-                    className="inline-flex items-center gap-1 text-[9px] font-bold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1 uppercase tracking-wider"
-                  >
-                    <X className="w-3 h-3" /> Remover arquivo
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="w-12 h-12 bg-gray-100 dark:bg-white/10 text-black/40 dark:text-white/40 rounded-2xl flex items-center justify-center mx-auto">
-                    <FileUp className="w-6 h-6" />
-                  </div>
-                  <div className="text-xs font-bold text-black/80 dark:text-white/80">
-                    Arraste o PDF do processo aqui ou clique para selecionar
-                  </div>
-                  <p className="text-[10px] text-black/40 dark:text-white/40 leading-relaxed max-w-xs mx-auto">
-                    Suporta processos SEI, notas fiscais, termos de ateste e liquidações em arquivo PDF.
-                  </p>
-                </div>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70 flex items-center gap-2">
+                <FileUp className="w-4 h-4 text-black dark:text-white" />
+                Carregar Processo
+              </h3>
+              {(file || pastedText || auditResult) && (
+                <button
+                  type="button"
+                  onClick={handleClearContext}
+                  className="px-2.5 py-1 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all flex items-center gap-1 shadow-xs active:scale-95"
+                  title="Limpar contexto e histórico antes de processar um novo arquivo PDF (garante zero dados residuais)"
+                >
+                  <RotateCcw className="w-3 h-3 text-red-500 dark:text-red-400" />
+                  Limpar Contexto
+                </button>
               )}
             </div>
+
+            {/* Input Mode Toggle */}
+            <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-xl border border-black/5 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setInputMode('file')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  inputMode === 'file'
+                    ? 'bg-white dark:bg-[#202326] text-black dark:text-white shadow-sm'
+                    : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                <FileUp className="w-3.5 h-3.5" /> Anexar PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('text')}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  inputMode === 'text'
+                    ? 'bg-white dark:bg-[#202326] text-black dark:text-white shadow-sm'
+                    : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Colar Texto / Peças
+              </button>
+            </div>
+
+            {inputMode === 'file' ? (
+              /* Drag and Drop Zone */
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                  dragActive 
+                    ? 'border-[#00FF00] bg-[#00FF00]/5 scale-[0.99]' 
+                    : file 
+                    ? 'border-black/20 dark:border-white/20 bg-gray-50 dark:bg-[#202326]' 
+                    : 'border-black/10 dark:border-white/15 hover:border-black/30 dark:hover:border-white/30 hover:bg-gray-50/50 dark:hover:bg-white/5'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileChange(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+
+                {file ? (
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 bg-black dark:bg-[#0C0D0E] text-[#00FF00] rounded-2xl flex items-center justify-center mx-auto shadow-md border border-white/10">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div className="font-bold text-xs text-black dark:text-white truncate max-w-xs mx-auto">
+                      {file.name}
+                    </div>
+                    <div className="text-[10px] text-black/50 dark:text-white/50 font-mono">
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB • Pronto para auditoria
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                        setFileBase64('');
+                        setAuditResult(null);
+                      }}
+                      className="inline-flex items-center gap-1 text-[9px] font-bold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 mt-1 uppercase tracking-wider"
+                    >
+                      <X className="w-3 h-3" /> Remover arquivo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="w-12 h-12 bg-gray-100 dark:bg-white/10 text-black/40 dark:text-white/40 rounded-2xl flex items-center justify-center mx-auto">
+                      <FileUp className="w-6 h-6" />
+                    </div>
+                    <div className="text-xs font-bold text-black/80 dark:text-white/80">
+                      Arraste o PDF do processo aqui ou clique para selecionar
+                    </div>
+                    <p className="text-[10px] text-black/40 dark:text-white/40 leading-relaxed max-w-xs mx-auto">
+                      Suporta processos SEI, notas fiscais, termos de ateste e liquidações em arquivo PDF.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Textarea para Colar Texto do Processo */
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-black text-black/40 dark:text-white/40 tracking-wider">
+                    Texto / Peças dos Autos do Processo SEI
+                  </label>
+                  {pastedText && (
+                    <button
+                      type="button"
+                      onClick={() => setPastedText('')}
+                      className="text-[9px] text-red-500 font-bold hover:underline"
+                    >
+                      Limpar texto
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  rows={7}
+                  value={pastedText}
+                  onChange={(e) => {
+                    setPastedText(e.target.value);
+                    if (auditResult) setAuditResult(null);
+                  }}
+                  placeholder="Cole aqui o texto completo ou trechos dos autos do SEI (Despacho inicial, Planilha de cálculo de valores, Nota de Empenho, Nota de Sistema/Liquidação, Ordem Bancária, etc.)..."
+                  className="w-full p-3 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-xl text-xs font-mono text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50 resize-y"
+                />
+                <p className="text-[9px] text-black/40 dark:text-white/40">
+                  {pastedText ? `${pastedText.length} caracteres informados. O auditor extrairá os valores e documentos estritamente deste texto.` : 'Cole qualquer texto com valores, número do processo SEI e registros contábeis.'}
+                </p>
+              </div>
+            )}
 
             {/* Optional Settings */}
             <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/10">
@@ -1177,6 +1288,22 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                       </p>
                     </div>
                   </div>
+
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsExportModalOpen(true)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg active:scale-95 ${
+                        auditResult.resultado === 'SEM OCORRÊNCIA'
+                          ? 'bg-[#00FF00] hover:bg-[#00DD00] text-black shadow-[#00FF00]/20'
+                          : 'bg-black hover:bg-neutral-800 text-white shadow-black/30'
+                      }`}
+                      title="Exportar Relatório PDF Oficial deste processo"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Exportar Relatório PDF</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1243,8 +1370,24 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                 </div>
               )}
 
-              {/* NAVEGAÇÃO DIRETA POR CLIQUES (8 ITENS SEM ROLAGEM) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 p-1.5 bg-gray-100/90 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
+              {/* NAVEGAÇÃO DIRETA POR CLIQUES (9 ITENS SEM ROLAGEM) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-1.5 p-1.5 bg-gray-100/90 dark:bg-[#181a1d] rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setActiveDetailTab('despacho_sei')}
+                  className={`px-2.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-center ${
+                    activeDetailTab === 'despacho_sei'
+                      ? 'bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black shadow-sm ring-2 ring-emerald-500/50'
+                      : 'text-black/75 dark:text-white/75 hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  <ScrollText className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span className="truncate">Despacho SEI</span>
+                  <span className="px-1.5 py-0.2 text-[8px] rounded-full font-mono font-black uppercase tracking-wider bg-emerald-600 text-white">
+                    020314
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setActiveDetailTab('documentos_siafi')}
@@ -1390,6 +1533,244 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   </span>
                 </button>
               </div>
+
+              {/* TAB 0: DESPACHO SEI (MACROFUNÇÃO SIAFI 020314) */}
+              {activeDetailTab === 'despacho_sei' && (() => {
+                const seiData = buildSeiCompiledAnalysis(auditResult);
+                const conclusao = auditResult.conclusaoMacrofuncao || seiData.conclusaoMacrofuncao;
+                const compilacao = (auditResult.analiseDocumentalCompilada && auditResult.analiseDocumentalCompilada.length > 0)
+                  ? auditResult.analiseDocumentalCompilada
+                  : seiData.analiseDocumentalCompilada;
+                const textoModelo = auditResult.modeloRespostaSei || seiData.modeloRespostaSei;
+
+                const handleCopyModelo = () => {
+                  navigator.clipboard.writeText(textoModelo);
+                  setCopiedSei(true);
+                  setTimeout(() => setCopiedSei(false), 2500);
+                };
+
+                return (
+                  <div className="space-y-4">
+                    {/* BANNER OFICIAL SEI */}
+                    <div className="bg-white dark:bg-[#16181A] p-5 rounded-2xl shadow-sm border border-black/10 dark:border-white/10 space-y-4 transition-colors">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white">
+                              Macrofunção SIAFI 020314
+                            </span>
+                            <span className="text-[10px] font-bold text-black/60 dark:text-white/60">
+                              Sistema Eletrônico de Informações (SEI)
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-black uppercase tracking-tight text-black dark:text-white flex items-center gap-2">
+                            <ScrollText className="w-5 h-5 text-emerald-600 dark:text-[#00FF00]" />
+                            Relatório de Conformidade dos Registros de Gestão
+                          </h3>
+                          <p className="text-xs text-black/70 dark:text-white/70 max-w-2xl">
+                            Cruzamento pericial dos documentos hábeis com os registros SIAFI, conferência matemática rigorosa de valores e validação de assinaturas eletrônicas.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={handleCopyModelo}
+                            className="flex-1 sm:flex-initial px-4 py-2.5 bg-black text-[#00FF00] dark:bg-[#00FF00] dark:text-black rounded-xl text-xs font-black uppercase tracking-wider hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                            title="Copiar texto oficial formatado para despacho no SEI"
+                          >
+                            {copiedSei ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                            <span>{copiedSei ? 'Copiado para SEI!' : 'Copiar Modelo SEI'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsExportModalOpen(true)}
+                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                            title="Exportar em formato PDF oficial"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span>PDF</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ENFASE RIGOROSA NOS VALORES MATEMÁTICOS */}
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" />
+                            Conferência Matemática Rigorosa dos Valores (Critério Crucial)
+                          </span>
+                          <span className="text-[9px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-white/70 dark:bg-black/30 px-2 py-0.5 rounded">
+                            Planilha de Cálculo x NE x NS x OB
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          <div className="p-2.5 bg-white dark:bg-[#1a1d20] rounded-lg border border-emerald-100 dark:border-emerald-900/40">
+                            <span className="text-[10px] text-black/60 dark:text-white/60 block">Valor Bruto / Empenhado</span>
+                            <span className="text-sm font-black font-mono text-black dark:text-white">
+                              R$ {auditResult.valores.valorBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-white dark:bg-[#1a1d20] rounded-lg border border-emerald-100 dark:border-emerald-900/40">
+                            <span className="text-[10px] text-black/60 dark:text-white/60 block">Retenções Tributárias / INSS</span>
+                            <span className="text-sm font-black font-mono text-amber-600 dark:text-amber-400">
+                              R$ {auditResult.valores.retencoes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-white dark:bg-[#1a1d20] rounded-lg border border-emerald-100 dark:border-emerald-900/40">
+                            <span className="text-[10px] text-black/60 dark:text-white/60 block">Valor Líquido Liquidado/Pago</span>
+                            <span className="text-sm font-black font-mono text-emerald-600 dark:text-[#00FF00]">
+                              R$ {auditResult.valores.valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SEÇÃO 1: RESUMO DO PROCESSO */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center gap-2 border-b border-black/10 dark:border-white/10 pb-2">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70">
+                            RESUMO DO PROCESSO
+                          </h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="p-3 bg-gray-50 dark:bg-[#1f2226] rounded-xl border border-black/5 dark:border-white/10">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-black/50 dark:text-white/50 block">
+                              Nº do Processo
+                            </span>
+                            <span className="text-xs font-black font-mono text-black dark:text-white break-all">
+                              {auditResult.processo}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-gray-50 dark:bg-[#1f2226] rounded-xl border border-black/5 dark:border-white/10">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-black/50 dark:text-white/50 block">
+                              Assunto / Objeto
+                            </span>
+                            <span className="text-xs font-medium text-black/90 dark:text-white/90">
+                              {auditResult.parecerTecnicoEstruturado?.resumoObjeto || auditResult.tipoDoc + ' em favor de ' + auditResult.favorecido.nome}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-gray-50 dark:bg-[#1f2226] rounded-xl border border-black/5 dark:border-white/10">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-black/50 dark:text-white/50 block">
+                              Valor Total
+                            </span>
+                            <span className="text-xs font-black font-mono text-emerald-600 dark:text-[#00FF00]">
+                              R$ {auditResult.valores.valorBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SEÇÃO 2: ANÁLISE DOCUMENTAL COMPILADA */}
+                      <div className="space-y-3 pt-4">
+                        <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-black/70 dark:text-white/70">
+                            ANÁLISE DOCUMENTAL COMPILADA
+                          </h4>
+                          <span className="text-[10px] text-black/50 dark:text-white/50">
+                            {compilacao.length} peça(s) relevante(s)
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {compilacao.map((item, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`p-4 rounded-xl border transition-all ${
+                                item.resultado === 'SEM RESTRIÇÃO'
+                                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40'
+                                  : 'bg-red-50/50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-black/50 dark:text-white/50 block">
+                                    Documento SEI / Registros
+                                  </span>
+                                  <div className="text-xs font-black font-mono text-black dark:text-white">
+                                    {item.documentoSeiRegistros}
+                                  </div>
+                                </div>
+                                <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                  item.resultado === 'SEM RESTRIÇÃO'
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-red-600 text-white'
+                                }`}>
+                                  {item.resultado}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1">
+                                <div className="p-2.5 bg-white/80 dark:bg-[#1a1d20] rounded-lg border border-black/5 dark:border-white/5 space-y-1">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-black/60 dark:text-white/60 block">
+                                    Ocorrência / Justificativa
+                                  </span>
+                                  <p className="text-black/80 dark:text-white/80 leading-relaxed font-sans">
+                                    {item.ocorrenciaJustificativa}
+                                  </p>
+                                </div>
+                                <div className="p-2.5 bg-white/80 dark:bg-[#1a1d20] rounded-lg border border-black/5 dark:border-white/5 space-y-1">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-black/60 dark:text-white/60 block">
+                                    Observações (Divergências puramente formais / contexto)
+                                  </span>
+                                  <p className="text-black/70 dark:text-white/70 leading-relaxed font-sans">
+                                    {item.observacoes}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* SEÇÃO 3: PARECER FINAL DA CONFORMIDADE */}
+                      <div className="p-4 bg-gray-50 dark:bg-[#1a1c1e] rounded-xl border border-black/10 dark:border-white/10 space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-black/60 dark:text-white/60 block">
+                          PARECER FINAL DA CONFORMIDADE
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-lg text-sm font-black uppercase tracking-wider ${
+                            conclusao === 'Sem Restrição'
+                              ? 'bg-emerald-600 text-white'
+                              : conclusao === 'Com Restrição'
+                              ? 'bg-red-600 text-white'
+                              : 'bg-amber-600 text-white'
+                          }`}>
+                            {conclusao}
+                          </span>
+                          <span className="text-xs text-black/75 dark:text-white/75 font-medium">
+                            {conclusao === 'Sem Restrição'
+                              ? 'Processo plenamente instruído e regular. Execução orçamentária e financeira confirmada nos moldes da Macrofunção SIAFI 020314.'
+                              : 'Inconsistência material detectada ou instrução pendente de saneamento tempestivo pelo setor demandante.'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* TEXTO FORMATADO PRONTO PARA COLAR NO SEI */}
+                      <div className="space-y-2 pt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-black/60 dark:text-white/60">
+                            Texto Formatado para Colagem no Despacho SEI
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyModelo}
+                            className="text-[10px] font-bold text-emerald-600 dark:text-[#00FF00] hover:underline flex items-center gap-1"
+                          >
+                            {copiedSei ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            {copiedSei ? 'Copiado!' : 'Copiar Texto Completo'}
+                          </button>
+                        </div>
+                        <pre className="p-4 bg-gray-900 text-gray-100 rounded-xl text-xs font-mono whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto border border-white/10 selection:bg-[#00FF00] selection:text-black">
+                          {textoModelo}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* TAB 1: VISÃO GERAL */}
               {activeDetailTab === 'visao_geral' && (
@@ -1709,6 +2090,8 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   parecer={auditResult.parecerTecnicoEstruturado} 
                   parecerConclusivoSimples={auditResult.parecerConclusivo} 
                   sugestaoConformista={auditResult.sugestaoConformista} 
+                  onExportPdf={() => setIsExportModalOpen(true)}
+                  modeloRespostaSei={auditResult.modeloRespostaSei}
                 />
               )}
 
@@ -1833,18 +2216,28 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                 <button
                   type="button"
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="w-full sm:w-1/3 py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20 active:scale-[0.98]"
+                  title="Abrir pré-visualização e baixar relatório em PDF"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar Relatório PDF
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleTransferToForm}
-                  className="w-full sm:w-1/2 py-3.5 px-4 bg-black dark:bg-[#00FF00] text-[#00FF00] dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-neutral-800 dark:hover:bg-[#00DD00] transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
+                  className="w-full sm:w-1/3 py-3.5 px-4 bg-black dark:bg-[#00FF00] text-[#00FF00] dark:text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-neutral-800 dark:hover:bg-[#00DD00] transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  Preencher Formulário de Registro
+                  Preencher Formulário
                 </button>
 
                 <button
                   type="button"
                   onClick={handleDirectSave}
                   disabled={isSaved}
-                  className={`w-full sm:w-1/2 py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border shadow-sm ${
+                  className={`w-full sm:w-1/3 py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border shadow-sm ${
                     isSaved
                       ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40 cursor-default'
                       : 'bg-white dark:bg-[#202326] text-black dark:text-white border-black/10 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 active:scale-[0.98]'
@@ -1853,12 +2246,12 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   {isSaved ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-[#00FF00]" />
-                      Salvo no Histórico e Excel
+                      Salvo no Histórico
                     </>
                   ) : (
                     <>
                       <Download className="w-4 h-4" />
-                      Salvar Diretamente no Histórico
+                      Salvar no Histórico
                     </>
                   )}
                 </button>
@@ -1868,6 +2261,14 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           )}
         </div>
       </div>
+
+      {/* Modal de Pré-visualização e Exportação de PDF Formatado */}
+      <ExportPdfModal 
+        isOpen={isExportModalOpen} 
+        onClose={() => setIsExportModalOpen(false)} 
+        data={auditResult} 
+        conformistaFallback={conformista} 
+      />
     </div>
   );
 }

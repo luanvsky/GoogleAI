@@ -17,23 +17,37 @@ import {
   ChevronLeft, 
   ChevronRight,
   Maximize2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Download
 } from 'lucide-react';
 
 interface ParecerTecnicoViewProps {
   parecer?: ParecerTecnicoConformista;
   parecerConclusivoSimples?: string;
   sugestaoConformista?: string;
+  onExportPdf?: () => void;
+  modeloRespostaSei?: string;
 }
 
 export function ParecerTecnicoView({
   parecer,
   parecerConclusivoSimples,
-  sugestaoConformista
+  sugestaoConformista,
+  onExportPdf,
+  modeloRespostaSei
 }: ParecerTecnicoViewProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedSei, setCopiedSei] = useState(false);
   const [activeSection, setActiveSection] = useState<number>(1);
   const [viewMode, setViewMode] = useState<'stepper' | 'full'>('stepper');
+
+  const copySeiModel = () => {
+    if (modeloRespostaSei) {
+      navigator.clipboard.writeText(modeloRespostaSei);
+      setCopiedSei(true);
+      setTimeout(() => setCopiedSei(false), 2500);
+    }
+  };
 
   // Montar texto completo para cópia do parecer estruturado
   const getFullFormattedText = () => {
@@ -263,6 +277,37 @@ Conformista Responsável: Setor de Conformidade dos Registros de Gestão / IFS`;
               </>
             )}
           </button>
+
+          {modeloRespostaSei && (
+            <button
+              type="button"
+              onClick={copySeiModel}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-[0.98]"
+              title="Copiar relatório formatado no padrão SEI (Macrofunção 020314)"
+            >
+              {copiedSei ? (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Copiado SEI!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" /> Padrão SEI
+                </>
+              )}
+            </button>
+          )}
+
+          {onExportPdf && (
+            <button
+              type="button"
+              onClick={onExportPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-[0.98]"
+              title="Exportar Relatório PDF deste parecer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Exportar PDF</span>
+            </button>
+          )}
         </div>
       </div>
 

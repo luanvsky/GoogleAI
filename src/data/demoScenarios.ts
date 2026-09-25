@@ -1,4 +1,5 @@
 import { ProcessAuditResult } from '../types';
+import { buildSeiCompiledAnalysis } from '../utils/seiModelHelper';
 
 export const DEMO_TAXAS_CREA: ProcessAuditResult = {
   processo: "23060.001366/2026-34",
@@ -1215,4 +1216,11 @@ export const DEMO_UNIR_POCO_REDONDO: ProcessAuditResult = {
   sugestaoConformista: "Registrar no SIAFI a Conformidade Diária dos Registros de Gestão com o status SEM OCORRÊNCIA para a Unidade Gestora 158134, validando os atos de gestão da despesa e procedendo ao arquivamento dos autos conforme Despacho SEI 1076687.",
   confiancaAnalise: "Motor Especialista Normativo IFS (Auditado Rigoroso)"
 };
+
+// Vinculação e enriquecimento com modelo padrão SEI e Análise Documental Compilada
+Object.assign(DEMO_TAXAS_CREA, buildSeiCompiledAnalysis(DEMO_TAXAS_CREA));
+Object.assign(DEMO_DIVERGENCIA_CALCULO, buildSeiCompiledAnalysis(DEMO_DIVERGENCIA_CALCULO));
+Object.assign(DEMO_MULHERES_MIL_JULHO2026, buildSeiCompiledAnalysis(DEMO_MULHERES_MIL_JULHO2026));
+Object.assign(DEMO_UNIR_POCO_REDONDO, buildSeiCompiledAnalysis(DEMO_UNIR_POCO_REDONDO));
+
 

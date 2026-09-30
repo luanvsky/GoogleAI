@@ -416,10 +416,372 @@ const DATA_FILE = process.env.VERCEL
   ? path.join("/tmp", "analyses.json")
   : path.join(process.cwd(), "analyses.json");
 
-// Endpoint para análise de processos em PDF via IA (Gemini 3.8 Flash)
+// Endpoint para listar os provedores e modelos LLM disponíveis (Gemini e DeepSeek / Custom Harness)
+app.get(["/api/llm-providers", "/llm-providers"], async (_req, res) => {
+  try {
+    const deepseekBaseUrl = (process.env.DEEPSEEK_BASE_URL || "").trim().replace(/\/$/, "");
+    const deepseekApiKey = (process.env.DEEPSEEK_API_KEY || "").trim();
+    const envModels = (process.env.DEEPSEEK_MODELS || "")
+      .split(",")
+      .map(m => m.trim())
+      .filter(Boolean);
+
+    let detectedModels = envModels.length > 0 ? envModels : ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"];
+    let isHarnessOnline = false;
+
+    // Se houver DEEPSEEK_BASE_URL configurada, tenta consultar /models no harness
+    if (deepseekBaseUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (deepseekApiKey) {
+          headers["Authorization"] = `Bearer ${deepseekApiKey}`;
+        }
+
+        const modelsUrl = deepseekBaseUrl.endsWith("/v1")
+          ? `${deepseekBaseUrl}/models`
+          : `${deepseekBaseUrl}/v1/models`;
+
+        const response = await fetch(modelsUrl, {
+          signal: controller.signal,
+          headers
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data: any = await response.json();
+          if (Array.isArray(data?.data) && data.data.length > 0) {
+            const harnessModelIds = data.data.map((m: any) => m.id).filter(Boolean);
+            if (harnessModelIds.length > 0) {
+              detectedModels = harnessModelIds;
+              isHarnessOnline = true;
+            }
+          }
+        }
+      } catch {
+        // Harness offline ou sem endpoint /models; mantém detectedModels padrão
+      }
+    }
+
+    return res.json({
+      providers: [
+        {
+          id: "gemini",
+          name: "Google Gemini",
+          available: !!process.env.GEMINI_API_KEY,
+          defaultModel: "gemini-3.8-flash",
+          models: ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+        },
+        {
+          id: "deepseek",
+          name: "DeepSeek / Custom Harness",
+          available: !!deepseekBaseUrl || !!deepseekApiKey,
+          configured: !!deepseekBaseUrl || !!deepseekApiKey,
+          isHarnessOnline,
+          baseUrl: deepseekBaseUrl || "https://api.deepseek.com",
+          hasApiKeyConfigured: !!deepseekApiKey,
+          defaultModel: detectedModels[0] || "deepseek-chat",
+          models: detectedModels
+        }
+      ]
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Erro ao consultar provedores LLM: " + err.message });
+  }
+});
+
+// Endpoint específico para buscar dinamicamente os modelos disponíveis no endpoint /models do harness da DeepSeek
+app.all(["/api/deepseek/models", "/api/models", "/deepseek-models"], async (req, res) => {
+  try {
+    const body = (req.method === "POST" ? req.body : req.query) || {};
+    const rawBaseUrl = (body.baseUrl || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").trim().replace(/\/$/, "");
+    const rawApiKey = (body.apiKey !== undefined && body.apiKey !== null && body.apiKey !== "" 
+      ? body.apiKey 
+      : (process.env.DEEPSEEK_API_KEY || "")).trim();
+
+    const envModels = (process.env.DEEPSEEK_MODELS || "")
+      .split(",")
+      .map(m => m.trim())
+      .filter(Boolean);
+
+    const fallbackModels = envModels.length > 0 ? envModels : ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"];
+
+    if (!rawBaseUrl) {
+      return res.json({
+        success: false,
+        error: "URL base não configurada",
+        models: fallbackModels,
+        count: fallbackModels.length,
+        source: "default"
+      });
+    }
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (rawApiKey) {
+      headers["Authorization"] = `Bearer ${rawApiKey}`;
+    }
+
+    const candidateUrls = rawBaseUrl.endsWith("/v1")
+      ? [`${rawBaseUrl}/models`]
+      : [`${rawBaseUrl}/v1/models`, `${rawBaseUrl}/models`];
+
+    let fetchedModels: string[] = [];
+    let lastError = "";
+
+    for (const url of candidateUrls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data: any = await response.json();
+          if (Array.isArray(data?.data)) {
+            const list = data.data.map((item: any) => typeof item === "string" ? item : (item.id || item.name)).filter(Boolean);
+            if (list.length > 0) {
+              fetchedModels = list;
+              break;
+            }
+          } else if (Array.isArray(data?.models)) {
+            const list = data.models.map((item: any) => typeof item === "string" ? item : (item.name || item.id || item.model)).filter(Boolean);
+            if (list.length > 0) {
+              fetchedModels = list;
+              break;
+            }
+          } else if (Array.isArray(data)) {
+            const list = data.map((item: any) => typeof item === "string" ? item : (item.id || item.name)).filter(Boolean);
+            if (list.length > 0) {
+              fetchedModels = list;
+              break;
+            }
+          }
+        } else {
+          lastError = `HTTP ${response.status}: ${await response.text().then(t => t.slice(0, 100)).catch(() => "")}`;
+        }
+      } catch (e: any) {
+        lastError = e.name === "AbortError" ? "Tempo limite esgotado (timeout 4s)" : e.message;
+      }
+    }
+
+    if (fetchedModels.length > 0) {
+      return res.json({
+        success: true,
+        models: fetchedModels,
+        count: fetchedModels.length,
+        source: "harness_api",
+        baseUrl: rawBaseUrl
+      });
+    }
+
+    return res.json({
+      success: false,
+      error: lastError || "Não foi possível obter a lista do endpoint /models",
+      models: fallbackModels,
+      count: fallbackModels.length,
+      source: "fallback",
+      baseUrl: rawBaseUrl
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: "Erro no servidor ao buscar modelos: " + err.message,
+      models: ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"]
+    });
+  }
+});
+
+// Endpoint para testar conectividade (ping/status), chave de API e inferência com o DeepSeek / Custom Harness
+app.all(["/api/deepseek/ping", "/api/deepseek/status", "/api/test-deepseek-connection", "/test-deepseek-connection"], async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const body = (req.method === "POST" ? req.body : req.query) || {};
+    const rawBaseUrl = (body.baseUrl || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").trim().replace(/\/$/, "");
+    const rawApiKey = (body.apiKey !== undefined && body.apiKey !== null && body.apiKey !== "" 
+      ? body.apiKey 
+      : (process.env.DEEPSEEK_API_KEY || "")).trim();
+    const modelToTest = (body.modelToTest || "deepseek-chat").trim();
+
+    if (!rawBaseUrl) {
+      return res.status(400).json({
+        success: false,
+        status: "incomplete_config",
+        message: "URL Base do harness (DEEPSEEK_BASE_URL) não fornecida.",
+        testedUrl: "",
+        latencyMs: 0
+      });
+    }
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (rawApiKey) {
+      headers["Authorization"] = `Bearer ${rawApiKey}`;
+    }
+
+    // 1. Testa endpoint de modelos (/v1/models ou /models)
+    const modelsUrl = rawBaseUrl.endsWith("/v1")
+      ? `${rawBaseUrl}/models`
+      : `${rawBaseUrl}/v1/models`;
+
+    let modelsFound: string[] = [];
+    let modelsStatus = 0;
+    let modelsError = "";
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const mRes = await fetch(modelsUrl, {
+        signal: controller.signal,
+        headers
+      });
+      clearTimeout(timeoutId);
+      modelsStatus = mRes.status;
+
+      if (mRes.ok) {
+        const mData: any = await mRes.json();
+        if (Array.isArray(mData?.data)) {
+          modelsFound = mData.data.map((m: any) => m.id).filter(Boolean);
+        }
+      } else {
+        const errText = await mRes.text();
+        modelsError = errText.slice(0, 200);
+      }
+    } catch (e: any) {
+      modelsError = e.name === "AbortError" ? "Tempo limite esgotado (timeout 4s)" : e.message;
+    }
+
+    // Se modelsStatus for 401, a chave de API fornecida está incorreta
+    if (modelsStatus === 401) {
+      const latencyMs = Date.now() - startTime;
+      return res.json({
+        success: false,
+        status: "auth_error",
+        message: "Chave de API inválida ou não autorizada (HTTP 401). Verifique a chave de API fornecida.",
+        latencyMs,
+        testedUrl: rawBaseUrl,
+        hasApiKey: !!rawApiKey,
+        models: []
+      });
+    }
+
+    // 2. Testa inferência ultraleve (/chat/completions) com max_tokens: 2
+    const chatUrl = rawBaseUrl.endsWith("/v1")
+      ? `${rawBaseUrl}/chat/completions`
+      : `${rawBaseUrl}/v1/chat/completions`;
+
+    let chatSuccess = false;
+    let chatStatus = 0;
+    let chatError = "";
+    const testModel = modelsFound.includes(modelToTest) ? modelToTest : (modelsFound[0] || modelToTest);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const cRes = await fetch(chatUrl, {
+        method: "POST",
+        signal: controller.signal,
+        headers,
+        body: JSON.stringify({
+          model: testModel,
+          messages: [{ role: "user", content: "ping" }],
+          max_tokens: 2
+        })
+      });
+      clearTimeout(timeoutId);
+      chatStatus = cRes.status;
+
+      if (cRes.ok) {
+        chatSuccess = true;
+      } else {
+        const errBody = await cRes.text();
+        chatError = errBody.slice(0, 200);
+      }
+    } catch (e: any) {
+      chatError = e.name === "AbortError" ? "Tempo limite esgotado ao testar resposta (timeout 5s)" : e.message;
+    }
+
+    const latencyMs = Date.now() - startTime;
+
+    // Resumo de sucesso
+    if (chatSuccess || (modelsFound.length > 0 && modelsStatus === 200)) {
+      return res.json({
+        success: true,
+        status: "connected",
+        message: chatSuccess
+          ? `Conexão e inferência testadas com sucesso no modelo "${testModel}"! (${latencyMs}ms)`
+          : `Servidor conectado e ${modelsFound.length} modelos detectados! (${latencyMs}ms)`,
+        latencyMs,
+        testedUrl: rawBaseUrl,
+        hasApiKey: !!rawApiKey,
+        models: modelsFound,
+        inferenceVerified: chatSuccess,
+        testedModel: testModel
+      });
+    }
+
+    if (chatStatus === 401) {
+      return res.json({
+        success: false,
+        status: "auth_error",
+        message: "Chave de API inválida ou recusada pelo harness (HTTP 401).",
+        latencyMs,
+        testedUrl: rawBaseUrl,
+        hasApiKey: !!rawApiKey,
+        models: modelsFound,
+        detail: chatError
+      });
+    }
+
+    if (chatStatus === 404 && modelsStatus === 404) {
+      return res.json({
+        success: false,
+        status: "endpoint_error",
+        message: "Endpoints /models e /chat/completions não encontrados (HTTP 404). Verifique se a URL Base necessita do sufixo /v1 (ex: http://seu-harness:8000/v1).",
+        latencyMs,
+        testedUrl: rawBaseUrl,
+        hasApiKey: !!rawApiKey,
+        models: []
+      });
+    }
+
+    return res.json({
+      success: false,
+      status: "unreachable",
+      message: `Não foi possível comunicar com o harness: ${chatError || modelsError || 'Servidor inacessível ou offline'}`,
+      latencyMs,
+      testedUrl: rawBaseUrl,
+      hasApiKey: !!rawApiKey,
+      models: modelsFound,
+      httpStatus: chatStatus || modelsStatus || undefined
+    });
+  } catch (err: any) {
+    const latencyMs = Date.now() - startTime;
+    return res.status(500).json({
+      success: false,
+      status: "server_error",
+      message: "Erro no servidor ao testar conexão: " + err.message,
+      latencyMs
+    });
+  }
+});
+
+// Endpoint para análise de processos em PDF via IA (Gemini ou DeepSeek Harness)
 app.post(["/api/analyze-process-pdf", "/analyze-process-pdf"], async (req, res) => {
   try {
-    const { pdfBase64, textContent, fileName, docTypeHint, conformistaHint } = req.body;
+    const { 
+      pdfBase64, 
+      textContent, 
+      fileName, 
+      docTypeHint, 
+      conformistaHint, 
+      provider, 
+      selectedModel,
+      baseUrl,
+      apiKey: customApiKey
+    } = req.body;
 
     if (!pdfBase64 && !textContent) {
       return res.status(400).json({ error: "É obrigatório fornecer o arquivo PDF (base64) ou o texto do processo." });
@@ -734,9 +1096,104 @@ Para cada documento relevante da árvore do processo:
       effectivePrompt += `\n\n--- TEXTO INTEGRAL EXTRAÍDO DO PROCESSO ANEXO ---\n${extractedText.slice(0, 100000)}\n--- FIM DO TEXTO EXTRAÍDO ---`;
     }
 
+    // Se o usuário selecionou o DeepSeek / Custom Harness como motor
+    if (provider === "deepseek" || (selectedModel && selectedModel.toLowerCase().startsWith("deepseek"))) {
+      const deepseekBaseUrl = (baseUrl || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").trim().replace(/\/$/, "");
+      const deepseekApiKey = (customApiKey !== undefined && customApiKey !== null && customApiKey !== "" 
+        ? customApiKey 
+        : (process.env.DEEPSEEK_API_KEY || "")).trim();
+      const targetModel = selectedModel || "deepseek-chat";
+
+      const chatEndpoint = deepseekBaseUrl.endsWith("/v1")
+        ? `${deepseekBaseUrl}/chat/completions`
+        : `${deepseekBaseUrl}/v1/chat/completions`;
+
+      console.log(`[DeepSeek Harness] Acionando modelo ${targetModel} no endpoint ${chatEndpoint}...`);
+
+      const deepseekHeaders: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (deepseekApiKey) {
+        deepseekHeaders["Authorization"] = `Bearer ${deepseekApiKey}`;
+      }
+
+      const deepseekUserContent = `${effectivePrompt}\n\nATENÇÃO: Responda OBRIGATORIAMENTE com um objeto JSON sintaticamente perfeito contendo as chaves: processo, numeroDoc, tipoDoc, naturezaProcesso, favorecido, valores, resultado, restricoesDetectadas, checklistAvaliado, parecerConclusivo, sugestaoConformista, conclusaoMacrofuncao, modeloRespostaSei, analiseDocumentalCompilada.`;
+
+      try {
+        const dsResponse = await fetch(chatEndpoint, {
+          method: "POST",
+          headers: deepseekHeaders,
+          body: JSON.stringify({
+            model: targetModel,
+            messages: [
+              {
+                role: "system",
+                content: "Você é um auditor contábil especialista na Macrofunção SIAFI 020314 e conformidade no SEI. Sua resposta deve ser EXCLUSIVAMENTE um objeto JSON sintaticamente válido."
+              },
+              {
+                role: "user",
+                content: deepseekUserContent
+              }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.1
+          })
+        });
+
+        if (!dsResponse.ok) {
+          const errBody = await dsResponse.text();
+          throw new Error(`DeepSeek Harness HTTP ${dsResponse.status}: ${errBody.slice(0, 200)}`);
+        }
+
+        const dsData: any = await dsResponse.json();
+        const contentStr = dsData?.choices?.[0]?.message?.content || "";
+        let cleanJsonStr = contentStr.trim();
+        if (cleanJsonStr.startsWith("```")) {
+          cleanJsonStr = cleanJsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        }
+
+        const auditResult = JSON.parse(cleanJsonStr);
+        const seiNormalized = buildSeiCompiledAnalysis(auditResult);
+        if (!auditResult.analiseDocumentalCompilada || auditResult.analiseDocumentalCompilada.length === 0) {
+          auditResult.analiseDocumentalCompilada = seiNormalized.analiseDocumentalCompilada;
+        }
+        if (!auditResult.conclusaoMacrofuncao) {
+          auditResult.conclusaoMacrofuncao = seiNormalized.conclusaoMacrofuncao;
+        }
+        if (!auditResult.modeloRespostaSei) {
+          auditResult.modeloRespostaSei = seiNormalized.modeloRespostaSei;
+        }
+
+        return res.json({
+          success: true,
+          fileName: fileName || "processo.pdf",
+          audit: auditResult,
+          isFallback: false,
+          modelUsed: `DeepSeek Harness (${targetModel})`
+        });
+      } catch (dsErr: any) {
+        console.warn(`[DeepSeek Harness] Falha na chamada ao modelo ${targetModel} (${dsErr.message}). Acionando contingência especializada...`);
+        const contingencyAudit = runExpertRuleAudit(
+          extractedText,
+          fileName || "processo.pdf",
+          cleanBase64,
+          docTypeHint,
+          conformistaHint
+        );
+
+        return res.json({
+          success: true,
+          fileName: fileName || "processo.pdf",
+          audit: contingencyAudit,
+          isFallback: true,
+          modelUsed: `Motor Especialista IFS (Contingência DeepSeek: ${dsErr.message.slice(0, 80)})`
+        });
+      }
+    }
+
     // Se o PDF em base64 estiver disponível e tiver menos de 18MB, envia inlineData para que a IA analise layout, tabelas e assinaturas nativamente
     const canSendInlinePdf = cleanBase64 && cleanBase64.length < 24000000;
-    const contentsPayload: any[] = [];
+    let contentsPayload: any[] = [];
 
     if (canSendInlinePdf) {
       contentsPayload.push({
@@ -748,12 +1205,15 @@ Para cada documento relevante da árvore do processo:
     }
     contentsPayload.push({ text: effectivePrompt });
 
-    // Modelos recomendados em ordem de robustez e quota:
+    // Modelos recomendados em ordem de robustez, disponibilidade gratuita e cota elevada:
+    // NOTA: "gemini-3.1-pro-preview" é modelo exclusivo de tier pago (quota 0 no free tier, gerando erro 429 RESOURCE_EXHAUSTED).
+    // Usamos exclusivamente modelos Flash e Flash Lite que possuem ampla cota de requisições e tokens.
     const candidateModels = [
+      ...(selectedModel && selectedModel.startsWith("gemini-") ? [selectedModel] : []),
       "gemini-3.8-flash",
-      "gemini-3.1-pro-preview",
-      "gemini-3.1-flash-lite"
-    ];
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest"
+    ].filter((val, idx, self) => self.indexOf(val) === idx);
 
     let response: any = null;
     let usedModelName = "";
@@ -779,9 +1239,19 @@ Para cada documento relevante da árvore do processo:
           break;
         }
       } catch (err: any) {
-        console.warn(`[Auditoria] Modelo ${modelName} falhou ou sobrecarregado (${err.message}). Tentando próximo...`);
+        const isQuota = err?.status === 429 || `${err?.message}`.includes("429") || `${err?.message}`.includes("RESOURCE_EXHAUSTED") || `${err?.message}`.includes("quota");
+        const statusSummary = isQuota ? "limite de cota/tokens atingido (429)" : (err?.message ? err.message.slice(0, 100) : "indisponível");
+        console.log(`[Auditoria] Modelo ${modelName} retornou ${statusSummary}. Tentando rota alternativa...`);
+
+        // Se o erro foi de quota por volume de tokens e o PDF inline estava presente,
+        // otimiza o payload para o próximo modelo utilizando apenas o texto extraído para poupar tokens
+        if (isQuota && contentsPayload.length > 1) {
+          console.log("[Auditoria] Otimizando payload para o próximo modelo (redução de tokens)...");
+          contentsPayload = [{ text: effectivePrompt }];
+        }
+
         if (i < candidateModels.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       }
     }

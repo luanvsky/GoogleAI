@@ -24,13 +24,15 @@ import {
   ArrowRight,
   ShieldAlert,
   Download,
-  Printer
+  Printer,
+  Settings
 } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { DocType, Analysis, CHECKLIST_BY_TYPE, RESTRICOES, DOC_GUIDES, TAX_RULES, TaxRule, ProcessAuditResult } from './types';
 import { ProcessPdfAnalyzer } from './components/ProcessPdfAnalyzer';
 import { HistoryStatistics } from './components/HistoryStatistics';
 import { ExportPdfModal } from './components/ExportPdfModal';
+import { GlobalSettingsModal, GlobalAiConfig } from './components/GlobalSettingsModal';
 
 interface TaxCalculatorProps {
   initialAudit?: ProcessAuditResult | null;
@@ -670,6 +672,28 @@ export default function App() {
   const [selectedAnalysisForExport, setSelectedAnalysisForExport] = useState<Analysis | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
+  // Estado do Painel de Configuração Global de IA (DEEPSEEK_BASE_URL, DEEPSEEK_API_KEY e Modelos)
+  const [isGlobalConfigOpen, setIsGlobalConfigOpen] = useState(false);
+  const [globalAiConfig, setGlobalAiConfig] = useState<GlobalAiConfig>(() => {
+    const saved = localStorage.getItem('global_ai_config');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {
+      baseUrl: 'https://api.deepseek.com',
+      apiKey: '',
+      defaultModel: 'deepseek-chat',
+      provider: 'deepseek'
+    };
+  });
+
+  const handleSaveGlobalAiConfig = (newConfig: GlobalAiConfig) => {
+    setGlobalAiConfig(newConfig);
+    localStorage.setItem('global_ai_config', JSON.stringify(newConfig));
+  };
+
   // Sincroniza a classe 'dark' no html root para Tailwind v4
   useEffect(() => {
     if (theme === 'dark') {
@@ -853,6 +877,17 @@ export default function App() {
             >
               <ExternalLink className="w-3 h-3 text-[#00FF00]" /> Link Externo
             </a>
+
+            {/* Botão de Acesso ao Painel Global de Configuração de IA (DeepSeek & Modelos) */}
+            <button
+              type="button"
+              onClick={() => setIsGlobalConfigOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/50 rounded-full text-xs font-bold transition-all shadow-2xs"
+              title="Configurações Globais de IA: DEEPSEEK_BASE_URL, DEEPSEEK_API_KEY e Modelo Padrão"
+            >
+              <Settings className="w-3.5 h-3.5 text-blue-400" />
+              <span>Configurações de IA</span>
+            </button>
 
             {/* Seletor de Tema Light / Dark Mode */}
             <div className="flex items-center bg-white/10 p-0.5 rounded-full border border-white/10">
@@ -1220,6 +1255,8 @@ export default function App() {
         ) : view === 'pdf-analyzer' ? (
           <ProcessPdfAnalyzer
             conformistaPadrao={conformista}
+            globalAiConfig={globalAiConfig}
+            onOpenGlobalSettings={() => setIsGlobalConfigOpen(true)}
             onOpenCalculator={() => setView('calculator')}
             onAuditChange={(audit) => setCurrentAudit(audit)}
             onImportToForm={(data) => {
@@ -1440,6 +1477,14 @@ export default function App() {
         onClose={() => setIsExportModalOpen(false)}
         data={selectedAnalysisForExport}
         conformistaFallback={conformista}
+      />
+
+      {/* Modal de Configurações Globais de IA (DEEPSEEK_BASE_URL, DEEPSEEK_API_KEY e Modelos) */}
+      <GlobalSettingsModal
+        isOpen={isGlobalConfigOpen}
+        onClose={() => setIsGlobalConfigOpen(false)}
+        currentConfig={globalAiConfig}
+        onSaveConfig={handleSaveGlobalAiConfig}
       />
 
       {/* Footer Info */}

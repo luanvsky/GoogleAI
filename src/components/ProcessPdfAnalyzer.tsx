@@ -27,7 +27,14 @@ import {
   ShieldCheck,
   Calculator,
   RotateCcw,
-  Trash2
+  Trash2,
+  Cpu,
+  Server,
+  Zap,
+  Wifi,
+  XCircle,
+  Activity,
+  Settings
 } from 'lucide-react';
 import { DocType, ProcessAuditResult, ProcessRestriction } from '../types';
 import { SiafiDocumentsTable } from './SiafiDocumentsTable';
@@ -40,9 +47,12 @@ import { GuiaDocumentosTable } from './GuiaDocumentosTable';
 import { ExportPdfModal } from './ExportPdfModal';
 import { exportToPdfReport } from '../utils/pdfExport';
 import { buildSeiCompiledAnalysis } from '../utils/seiModelHelper';
+import { GlobalAiConfig } from './GlobalSettingsModal';
 
 interface ProcessPdfAnalyzerProps {
   conformistaPadrao: string;
+  globalAiConfig?: GlobalAiConfig;
+  onOpenGlobalSettings?: () => void;
   onImportToForm: (data: {
     processo: string;
     numeroDoc: string;
@@ -65,7 +75,15 @@ interface ProcessPdfAnalyzerProps {
   onAuditChange?: (audit: ProcessAuditResult) => void;
 }
 
-export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveToHistory, onOpenCalculator, onAuditChange }: ProcessPdfAnalyzerProps) {
+export function ProcessPdfAnalyzer({ 
+  conformistaPadrao, 
+  globalAiConfig, 
+  onOpenGlobalSettings, 
+  onImportToForm, 
+  onSaveToHistory, 
+  onOpenCalculator, 
+  onAuditChange 
+}: ProcessPdfAnalyzerProps) {
   const [file, setFile] = useState<File | null>(null);
   const [fileBase64, setFileBase64] = useState<string>('');
   const [conformista, setConformista] = useState<string>(conformistaPadrao || '');
@@ -84,6 +102,187 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados de Provedor e Seleção de Modelos LLM (Gemini vs DeepSeek / Custom Harness)
+  const [llmProvider, setLlmProvider] = useState<'gemini' | 'deepseek'>('gemini');
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash');
+  const [deepseekModels, setDeepseekModels] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder']);
+  const [geminiModels, setGeminiModels] = useState<string[]>(['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest']);
+  const [isDeepseekConfigured, setIsDeepseekConfigured] = useState<boolean>(false);
+  const [isHarnessOnline, setIsHarnessOnline] = useState<boolean>(false);
+  const [customModelInput, setCustomModelInput] = useState<string>('');
+
+  // Estados do Utilitário de Teste de Conexão com o Harness DeepSeek
+  const [isTestingHarness, setIsTestingHarness] = useState<boolean>(false);
+  const [harnessTestResult, setHarnessTestResult] = useState<{
+    success: boolean;
+    status: string;
+    message: string;
+    latencyMs?: number;
+    testedUrl?: string;
+    hasApiKey?: boolean;
+    models?: string[];
+    testedModel?: string;
+    inferenceVerified?: boolean;
+    detail?: string;
+  } | null>(null);
+  const [showAdvancedHarnessConfig, setShowAdvancedHarnessConfig] = useState<boolean>(false);
+  const [testCustomUrl, setTestCustomUrl] = useState<string>('');
+  const [testCustomApiKey, setTestCustomApiKey] = useState<string>('');
+  const [serverBaseUrl, setServerBaseUrl] = useState<string>('https://api.deepseek.com');
+  const [serverHasApiKey, setServerHasApiKey] = useState<boolean>(false);
+
+  // Estados do Seletor Dinâmico de Modelos via rota /models
+  const [isLoadingModels, setIsLoadingModels] = useState<boolean>(false);
+  const [modelsFetchStatus, setModelsFetchStatus] = useState<{
+    count?: number;
+    source?: string;
+    message?: string;
+    isLive?: boolean;
+  } | null>(null);
+  const [modelSearchQuery, setModelSearchQuery] = useState<string>('');
+
+  // Sincroniza configurações globais de IA (URL, Chave, Modelo Padrão e Provedor)
+  useEffect(() => {
+    if (globalAiConfig) {
+      if (globalAiConfig.provider) {
+        setLlmProvider(globalAiConfig.provider);
+      }
+      if (globalAiConfig.baseUrl) {
+        setServerBaseUrl(globalAiConfig.baseUrl);
+        setTestCustomUrl(globalAiConfig.baseUrl);
+      }
+      if (globalAiConfig.apiKey) {
+        setTestCustomApiKey(globalAiConfig.apiKey);
+        setServerHasApiKey(true);
+      }
+      if (globalAiConfig.defaultModel) {
+        setSelectedModel(globalAiConfig.defaultModel);
+      }
+    }
+  }, [globalAiConfig]);
+
+  // Consulta modelos disponíveis dinamicamente no backend e harness conectado
+  useEffect(() => {
+    fetch('/api/llm-providers')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data?.providers)) {
+          const ds = data.providers.find((p: any) => p.id === 'deepseek');
+          if (ds) {
+            setIsDeepseekConfigured(!!ds.configured);
+            setIsHarnessOnline(!!ds.isHarnessOnline);
+            setServerBaseUrl(ds.baseUrl || 'https://api.deepseek.com');
+            setServerHasApiKey(!!ds.hasApiKeyConfigured);
+            if (Array.isArray(ds.models) && ds.models.length > 0) {
+              setDeepseekModels(ds.models);
+            }
+          }
+          const gem = data.providers.find((p: any) => p.id === 'gemini');
+          if (gem && Array.isArray(gem.models) && gem.models.length > 0) {
+            setGeminiModels(gem.models);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback silencioso mantendo modelos padrão
+      });
+  }, []);
+
+  const handleTestHarnessConnection = async () => {
+    setIsTestingHarness(true);
+    setHarnessTestResult(null);
+
+    try {
+      const payload: Record<string, string> = {};
+      if (testCustomUrl.trim()) payload.baseUrl = testCustomUrl.trim();
+      if (testCustomApiKey.trim()) payload.apiKey = testCustomApiKey.trim();
+      if (selectedModel && selectedModel !== 'custom') payload.modelToTest = selectedModel;
+      else if (customModelInput.trim()) payload.modelToTest = customModelInput.trim();
+
+      const response = await fetch('/api/deepseek/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      setHarnessTestResult(data);
+
+      if (data.success) {
+        setIsHarnessOnline(true);
+        setIsDeepseekConfigured(true);
+        if (Array.isArray(data.models) && data.models.length > 0) {
+          setDeepseekModels(data.models);
+          if (!data.models.includes(selectedModel) && selectedModel !== 'custom') {
+            setSelectedModel(data.models[0]);
+          }
+        }
+      }
+    } catch (err: any) {
+      setHarnessTestResult({
+        success: false,
+        status: 'network_error',
+        message: 'Erro ao comunicar com a rota de teste: ' + (err.message || 'Falha de conexão')
+      });
+    } finally {
+      setIsTestingHarness(false);
+    }
+  };
+
+  // Busca dinamicamente os modelos disponíveis na rota /models do harness
+  const handleFetchDynamicModels = async () => {
+    setIsLoadingModels(true);
+    setModelsFetchStatus(null);
+    try {
+      const payload: Record<string, string> = {};
+      if (testCustomUrl.trim()) payload.baseUrl = testCustomUrl.trim();
+      if (testCustomApiKey.trim()) payload.apiKey = testCustomApiKey.trim();
+
+      const res = await fetch('/api/deepseek/models', {
+        method: Object.keys(payload).length > 0 ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        ...(Object.keys(payload).length > 0 ? { body: JSON.stringify(payload) } : {})
+      });
+      const data = await res.json();
+
+      if (data && Array.isArray(data.models) && data.models.length > 0) {
+        setDeepseekModels(data.models);
+        if (data.source === 'harness_api') {
+          setIsHarnessOnline(true);
+          setModelsFetchStatus({
+            count: data.models.length,
+            source: 'harness_api',
+            isLive: true,
+            message: `${data.models.length} modelos encontrados dinamicamente em /models`
+          });
+        } else {
+          setModelsFetchStatus({
+            count: data.models.length,
+            source: data.source || 'env',
+            isLive: false,
+            message: `${data.models.length} modelos carregados da lista pré-configurada`
+          });
+        }
+        // Se o modelo selecionado atual não estiver na lista, seleciona o primeiro
+        if (!data.models.includes(selectedModel) && selectedModel !== 'custom') {
+          setSelectedModel(data.models[0]);
+        }
+      } else {
+        setModelsFetchStatus({
+          message: data?.error || 'Nenhum modelo retornado pelo endpoint /models',
+          isLive: false
+        });
+      }
+    } catch (err: any) {
+      setModelsFetchStatus({
+        message: 'Falha ao buscar modelos: ' + (err.message || 'Erro de conexão'),
+        isLive: false
+      });
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   // Sincroniza o resultado da auditoria com o componente pai / Calculadora Tributária
   useEffect(() => {
@@ -187,6 +386,10 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
         setAnalysisStep(steps[stepIndex]);
       }, 2200);
 
+      const effectiveModel = (llmProvider === 'deepseek' && customModelInput.trim())
+        ? customModelInput.trim()
+        : selectedModel;
+
       const response = await fetch('/api/analyze-process-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,7 +398,11 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
           textContent: pastedText.trim() || undefined,
           fileName: file?.name || (pastedText.trim() ? 'processo_texto_colado.txt' : 'processo.pdf'),
           docTypeHint: docTypeHint === 'auto' ? undefined : docTypeHint,
-          conformistaHint: conformista || undefined
+          conformistaHint: conformista || undefined,
+          provider: llmProvider,
+          selectedModel: effectiveModel,
+          baseUrl: testCustomUrl.trim() || globalAiConfig?.baseUrl || undefined,
+          apiKey: testCustomApiKey.trim() || globalAiConfig?.apiKey || undefined
         })
       });
 
@@ -1012,6 +1219,379 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
                   <option value="NS - Nota de Sistema" className="dark:bg-[#16181A] dark:text-white">NS - Nota de Sistema</option>
                 </select>
               </div>
+
+              {/* Seleção do Motor de Inteligência Artificial / LLM */}
+              <div className="pt-2 border-t border-black/5 dark:border-white/10 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-black text-black/40 dark:text-white/40 flex items-center gap-1.5 tracking-wider">
+                    <Cpu className="w-3.5 h-3.5 text-black/70 dark:text-white/70" />
+                    Motor de Inteligência Artificial
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {onOpenGlobalSettings && (
+                      <button
+                        type="button"
+                        onClick={onOpenGlobalSettings}
+                        className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                        title="Abrir painel de configurações globais de IA"
+                      >
+                        <Settings className="w-3 h-3" />
+                        <span>Painel Global</span>
+                      </button>
+                    )}
+                    {llmProvider === 'deepseek' && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                        isHarnessOnline 
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                          : isDeepseekConfigured 
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                      }`}>
+                        {isHarnessOnline ? 'Harness Online' : isDeepseekConfigured ? 'Harness Configurado' : 'Aguardando .env'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Provider Selector Tabs */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLlmProvider('gemini');
+                      setSelectedModel('gemini-3.8-flash');
+                    }}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      llmProvider === 'gemini'
+                        ? 'bg-white dark:bg-[#202326] text-black dark:text-[#00FF00] shadow-sm'
+                        : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Google Gemini
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLlmProvider('deepseek');
+                      setSelectedModel(deepseekModels[0] || 'deepseek-chat');
+                    }}
+                    className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      llmProvider === 'deepseek'
+                        ? 'bg-white dark:bg-[#202326] text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white'
+                    }`}
+                  >
+                    <Server className="w-3.5 h-3.5" /> DeepSeek / Harness
+                  </button>
+                </div>
+
+                {/* Model Selection */}
+                {llmProvider === 'gemini' ? (
+                  <div>
+                    <label className="text-[10px] text-black/50 dark:text-white/50 block mb-1">
+                      Modelo Gemini
+                    </label>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-xl text-xs font-medium text-black dark:text-white focus:outline-none focus:ring-1 focus:ring-[#00FF00]/50"
+                    >
+                      <option value="gemini-3.8-flash">gemini-3.8-flash (Recomendado - Auditoria Completa)</option>
+                      <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Rápido - Cota Leve)</option>
+                      <option value="gemini-flash-latest">gemini-flash-latest (Última Versão Estável)</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Seletor Dinâmico de Modelos via endpoint /models do Harness */}
+                    <div className="p-3 bg-gray-50 dark:bg-[#1E2124] border border-black/10 dark:border-white/10 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <label className="text-xs font-black uppercase tracking-wider text-black/80 dark:text-white/90 block">
+                            Modelo no Harness DeepSeek
+                          </label>
+                          <span className="text-[10px] text-black/45 dark:text-white/45">
+                            Consulta dinâmica ao endpoint <code className="font-mono text-[9px] bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded">/models</code>
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleFetchDynamicModels}
+                          disabled={isLoadingModels}
+                          className="px-2.5 py-1 bg-white dark:bg-[#2A2E33] hover:bg-gray-100 dark:hover:bg-[#343940] border border-black/10 dark:border-white/15 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                          title="Buscar lista dinâmica de modelos disponíveis no harness"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isLoadingModels ? 'animate-spin' : ''}`} />
+                          <span>{isLoadingModels ? 'Buscando...' : 'Buscar Modelos (/models)'}</span>
+                        </button>
+                      </div>
+
+                      {/* Notificação de Status da Busca Dinâmica */}
+                      {modelsFetchStatus && (
+                        <div className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-between ${
+                          modelsFetchStatus.isLive
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                        }`}>
+                          <span className="flex items-center gap-1.5">
+                            {modelsFetchStatus.isLive ? '✨' : 'ℹ️'} {modelsFetchStatus.message}
+                          </span>
+                          {modelsFetchStatus.count && (
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded">
+                              {modelsFetchStatus.count} total
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Filtro rápido se houver mais de 3 modelos */}
+                      {deepseekModels.length > 3 && (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={modelSearchQuery}
+                            onChange={(e) => setModelSearchQuery(e.target.value)}
+                            placeholder="Filtrar modelos (ex: r1, chat, 32b, qwen)..."
+                            className="w-full px-2.5 py-1.5 bg-white dark:bg-[#141618] border border-black/10 dark:border-white/10 rounded-lg text-xs text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                          />
+                          {modelSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setModelSearchQuery('')}
+                              className="absolute right-2.5 top-1.5 text-xs text-black/40 hover:text-black dark:text-white/40 dark:hover:text-white"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Dropdown Seletor */}
+                      <div>
+                        <select
+                          value={selectedModel}
+                          onChange={(e) => {
+                            setSelectedModel(e.target.value);
+                            if (e.target.value !== 'custom') {
+                              setCustomModelInput('');
+                            }
+                          }}
+                          className="w-full px-3 py-2 bg-white dark:bg-[#141618] border border-black/15 dark:border-white/15 rounded-xl text-xs font-semibold text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        >
+                          {deepseekModels
+                            .filter(m => !modelSearchQuery || m.toLowerCase().includes(modelSearchQuery.toLowerCase()))
+                            .map((m) => (
+                              <option key={m} value={m} className="dark:bg-[#16181A] dark:text-white font-mono">
+                                {m} {m.includes('reasoner') || m.includes('r1') ? ' 🧠 [Raciocínio R1]' : m.includes('chat') || m.includes('v3') ? ' ⚡ [V3 Geral]' : m.includes('coder') ? ' 💻 [Código]' : ''}
+                              </option>
+                            ))}
+                          <option value="custom" className="dark:bg-[#16181A] dark:text-white font-sans font-bold">
+                            + Digitar outro modelo do seu harness manualmente...
+                          </option>
+                        </select>
+                      </div>
+
+                      {/* Input para Modelo Customizado se selecionado */}
+                      {(selectedModel === 'custom' || !deepseekModels.includes(selectedModel)) && (
+                        <div>
+                          <label className="text-[10px] text-black/50 dark:text-white/50 block mb-1 font-bold">
+                            Identificador exato do modelo:
+                          </label>
+                          <input
+                            type="text"
+                            value={customModelInput}
+                            onChange={(e) => setCustomModelInput(e.target.value)}
+                            placeholder="Digite o ID do modelo (ex: deepseek-ai/DeepSeek-V3, my-model)"
+                            className="w-full px-3 py-2 bg-white dark:bg-[#141618] border border-blue-400/60 rounded-xl text-xs font-mono text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                          />
+                        </div>
+                      )}
+
+                      {/* Indicador do modelo ativo selecionado para análise */}
+                      <div className="flex items-center justify-between text-[11px] pt-1 text-black/60 dark:text-white/60">
+                        <span>Modelo selecionado para análise:</span>
+                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900/60">
+                          {selectedModel === 'custom' && customModelInput.trim() ? customModelInput.trim() : selectedModel}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Seção Validação de Conexão com o Harness */}
+                    <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-900/40 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-blue-200/50 dark:border-blue-900/30">
+                        <div className="flex items-center gap-1.5">
+                          <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-xs font-black uppercase tracking-wider text-blue-950 dark:text-blue-200">
+                            Validação de Conexão
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-blue-900/70 dark:text-blue-300/70 font-mono bg-blue-100/70 dark:bg-blue-900/50 px-2 py-0.5 rounded-md">
+                            {serverBaseUrl.replace(/^https?:\/\//, '')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botão de Disparo do Teste */}
+                      <button
+                        type="button"
+                        onClick={handleTestHarnessConnection}
+                        disabled={isTestingHarness}
+                        className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isTestingHarness ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Executando Ping & Status...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 text-amber-300" />
+                            <span>Testar Conexão</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Exibição do Feedback Visual de Sucesso/Erro */}
+                      {harnessTestResult && (
+                        <div
+                          className={`p-3.5 rounded-xl border text-xs space-y-2.5 animate-in fade-in duration-200 shadow-xs ${
+                            harnessTestResult.success
+                              ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100'
+                              : 'bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-700 text-red-950 dark:text-red-100'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+                              harnessTestResult.success
+                                ? 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-red-200/80 dark:bg-red-900/60 text-red-700 dark:text-red-300'
+                            }`}>
+                              {harnessTestResult.success ? (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center justify-between flex-wrap gap-1.5">
+                                <span className="font-black text-xs uppercase tracking-wide flex items-center gap-1.5">
+                                  <span className={`w-2 h-2 rounded-full ${harnessTestResult.success ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                                  {harnessTestResult.success
+                                    ? 'Conexão e Autenticação Validadas!'
+                                    : 'Falha na Validação de Conexão'}
+                                </span>
+                                {harnessTestResult.latencyMs !== undefined && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 bg-black/5 dark:bg-white/10 rounded-full font-bold">
+                                    Ping: {harnessTestResult.latencyMs}ms
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs leading-relaxed font-medium">
+                                {harnessTestResult.message}
+                              </p>
+                              {harnessTestResult.detail && (
+                                <p className="text-[10px] font-mono bg-black/5 dark:bg-white/5 p-1.5 rounded opacity-90 break-all">
+                                  {harnessTestResult.detail}
+                                </p>
+                              )}
+                              
+                              <div className="pt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] opacity-80 border-t border-black/5 dark:border-white/10">
+                                <span>URL: <strong className="font-mono">{harnessTestResult.testedUrl || serverBaseUrl}</strong></span>
+                                <span>Chave API: <strong>{harnessTestResult.hasApiKey ? 'Fornecida' : 'Não informada (rede local)'}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Chips de Modelos Detectados */}
+                          {harnessTestResult.models && harnessTestResult.models.length > 0 && (
+                            <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800/60 space-y-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider block opacity-80">
+                                Modelos Ativos Detectados ({harnessTestResult.models.length}) — clique para selecionar:
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {harnessTestResult.models.map((modId) => (
+                                  <button
+                                    key={modId}
+                                    type="button"
+                                    onClick={() => setSelectedModel(modId)}
+                                    className={`px-2.5 py-1 rounded-md text-[10px] font-mono transition-all ${
+                                      selectedModel === modId
+                                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                                        : 'bg-white/90 dark:bg-black/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-black/80 dark:text-white/80 border border-black/10 dark:border-white/10'
+                                    }`}
+                                  >
+                                    {modId}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Opção Avançada: Testar Parâmetros Customizados no Navegador */}
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowAdvancedHarnessConfig(!showAdvancedHarnessConfig)}
+                          className="text-[10px] font-bold text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1"
+                        >
+                          <span>{showAdvancedHarnessConfig ? '▾ Ocultar parâmetros temporários de teste' : '▸ Testar URL ou Chave Específica (Diagnóstico rápido)'}</span>
+                        </button>
+
+                        {showAdvancedHarnessConfig && (
+                          <div className="mt-2 p-2.5 bg-white/70 dark:bg-[#1A1D20] border border-blue-200/50 dark:border-blue-900/30 rounded-lg space-y-2 text-xs animate-in fade-in duration-150">
+                            <div>
+                              <label className="text-[10px] text-black/60 dark:text-white/60 block mb-0.5 font-bold">
+                                URL Base de Teste (deixe vazio para usar a do .env):
+                              </label>
+                              <input
+                                type="text"
+                                value={testCustomUrl}
+                                onChange={(e) => setTestCustomUrl(e.target.value)}
+                                placeholder={serverBaseUrl || "http://localhost:8000/v1"}
+                                className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-md text-xs font-mono text-black dark:text-white focus:ring-1 focus:ring-blue-500/50"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-black/60 dark:text-white/60 block mb-0.5 font-bold">
+                                Chave de API de Teste (opcional, deixe vazio para usar a do .env):
+                              </label>
+                              <input
+                                type="password"
+                                value={testCustomApiKey}
+                                onChange={(e) => setTestCustomApiKey(e.target.value)}
+                                placeholder={serverHasApiKey ? "•••••••• (Chave configurada no .env)" : "sk-..."}
+                                className="w-full px-2.5 py-1.5 bg-gray-50 dark:bg-[#202326] border border-black/10 dark:border-white/10 rounded-md text-xs font-mono text-black dark:text-white focus:ring-1 focus:ring-blue-500/50"
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1">
+                              {(testCustomUrl || testCustomApiKey) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTestCustomUrl('');
+                                    setTestCustomApiKey('');
+                                  }}
+                                  className="text-[10px] text-red-600 hover:underline"
+                                >
+                                  Limpar campos de teste
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Dica de Configuração Permanente no .env */}
+                      <div className="text-[10px] text-blue-900/70 dark:text-blue-200/70 leading-relaxed border-t border-blue-200/40 dark:border-blue-900/30 pt-2">
+                        💡 <strong>Configuração permanente:</strong> Defina <code className="bg-blue-100 dark:bg-blue-900/60 px-1 py-0.5 rounded text-[9px] font-mono">DEEPSEEK_BASE_URL</code> e <code className="bg-blue-100 dark:bg-blue-900/60 px-1 py-0.5 rounded text-[9px] font-mono">DEEPSEEK_API_KEY</code> no arquivo <code className="text-[9px] font-mono">.env</code> do servidor para persistir a conexão.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {errorMessage && (
@@ -1121,29 +1701,44 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
               </div>
             </div>
 
-            {/* Trigger Button */}
-            <button
-              type="button"
-              onClick={runAnalysis}
-              disabled={isAnalyzing || !fileBase64}
-              className={`w-full py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-md ${
-                isAnalyzing || !fileBase64
-                  ? 'bg-gray-200 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed shadow-none'
-                  : 'bg-black dark:bg-[#00FF00] text-[#00FF00] dark:text-black hover:bg-neutral-800 dark:hover:bg-[#00DD00] active:scale-[0.98]'
-              }`}
-            >
-              {isAnalyzing ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#00FF00] dark:text-black" />
-                  Auditando Processo...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Analisar Processo com IA
-                </>
+            {/* Trigger Button & Clear Context Actions */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={runAnalysis}
+                disabled={isAnalyzing || (!fileBase64 && !pastedText.trim())}
+                className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-md ${
+                  isAnalyzing || (!fileBase64 && !pastedText.trim())
+                    ? 'bg-gray-200 dark:bg-white/10 text-black/30 dark:text-white/30 cursor-not-allowed shadow-none'
+                    : 'bg-black dark:bg-[#00FF00] text-[#00FF00] dark:text-black hover:bg-neutral-800 dark:hover:bg-[#00DD00] active:scale-[0.98]'
+                }`}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-[#00FF00] dark:text-black" />
+                    Auditando Processo...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Analisar Processo com IA
+                  </>
+                )}
+              </button>
+
+              {(file || pastedText.trim() || auditResult) && (
+                <button
+                  type="button"
+                  onClick={handleClearContext}
+                  disabled={isAnalyzing}
+                  className="px-3.5 py-3.5 bg-gray-100 hover:bg-red-50 dark:bg-white/5 dark:hover:bg-red-950/40 border border-black/10 dark:border-white/10 hover:border-red-300 dark:hover:border-red-800 text-black/70 hover:text-red-700 dark:text-white/70 dark:hover:text-red-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-xs active:scale-95"
+                  title="Limpar contexto e histórico antes de processar um novo arquivo PDF (garante zero dados residuais)"
+                >
+                  <RotateCcw className="w-4 h-4 text-red-500" />
+                  <span className="hidden sm:inline">Limpar Contexto</span>
+                </button>
               )}
-            </button>
+            </div>
 
             {isAnalyzing && (
               <div className="p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-black/5 dark:border-white/10 text-center space-y-1.5 animate-pulse">
@@ -1219,6 +1814,25 @@ export function ProcessPdfAnalyzer({ conformistaPadrao, onImportToForm, onSaveTo
             </div>
           ) : (
             <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              
+              {/* RESET / NEW ANALYSIS ACTION TOOLBAR */}
+              <div className="flex items-center justify-between gap-3 p-3 bg-white dark:bg-[#16181A] rounded-2xl border border-black/5 dark:border-white/10 shadow-sm flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-bold text-black/80 dark:text-white/80">
+                    Processo Auditado: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{auditResult.processo || 'S/N'}</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearContext}
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                  title="Limpar explicitamente todo o histórico e estado da análise para auditar um novo arquivo do zero"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Iniciar Nova Análise (Limpar Contexto)
+                </button>
+              </div>
               
               {/* CONTINGENCY MODE ALERT BANNER */}
               {isContingencyMode && (
